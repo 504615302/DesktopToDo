@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from model.task import Task
 from ui.datetime_picker import IconButton
-from ui.icons import stroke_icon
+from ui.icons import asset_pixmap, stroke_icon
 from ui.styles import Theme
 
 
@@ -151,9 +151,15 @@ class TaskItem(QWidget):
             self.desc.hide()
 
         level = self.task.priority_enum.value
-        if not completed and level >= 2:
-            color = self._theme.danger if level >= 3 else self._theme.accent
-            self.priority.setPixmap(stroke_icon("flag", color, 14).pixmap(14, 14))
+        if not completed and level >= 3:
+            pixmap = asset_pixmap("priority", 16)
+            if pixmap.isNull():
+                self.priority.setPixmap(stroke_icon("flag", self._theme.danger, 14).pixmap(14, 14))
+            else:
+                self.priority.setPixmap(pixmap)
+            self.priority.show()
+        elif not completed and level >= 2:
+            self.priority.setPixmap(stroke_icon("flag", self._theme.accent, 14).pixmap(14, 14))
             self.priority.show()
         else:
             self.priority.hide()

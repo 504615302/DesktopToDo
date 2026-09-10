@@ -23,6 +23,13 @@ from service.settings_service import SettingsService
 from service.task_service import TaskService
 
 
+def test_user_data_root_in_dev() -> None:
+    from app_paths import exe_dir, is_portable, user_data_root
+
+    assert is_portable() is True
+    assert user_data_root() == exe_dir()
+
+
 def test_task_and_settings_roundtrip() -> None:
     tmp_dir = TemporaryDirectory(ignore_cleanup_errors=True)
     tmp = Path(tmp_dir.name)
@@ -103,11 +110,29 @@ def test_task_and_settings_roundtrip() -> None:
         )
         assert "max_completion_tokens" in payload
         assert "max_tokens" not in payload
+        from service.ai_service import QA_SYSTEM_PROMPT
+        from service.chat_service import build_qa_context
+
+        qa = build_chat_payload(
+            AIModelConfig(name="qa", model_name="gpt-4o-mini"),
+            "",
+            32,
+            use_completion_tokens=False,
+            include_temperature=True,
+            system_prompt=QA_SYSTEM_PROMPT,
+            history=[{"role": "user", "content": "今天做什么"}],
+        )
+        assert qa["messages"][0]["content"] == QA_SYSTEM_PROMPT
+        assert qa["messages"][-1]["content"] == "今天做什么"
+        context = build_qa_context([first], [note], include_tasks=True, include_memos=True)
+        assert "未完成待办" in context or "最近已完成" in context
+        assert "MCP" in context
     finally:
         db.close()
         tmp_dir.cleanup()
 
 
 if __name__ == "__main__":
+    test_user_data_root_in_dev()
     test_task_and_settings_roundtrip()
     print("service ok")

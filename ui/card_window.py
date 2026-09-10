@@ -16,6 +16,7 @@ class CardWindow(QWidget):
         self._theme = theme
         self._resizable = resizable
         self._locked = False
+        self._height_locked = False
         self._drag_pos: QPoint | None = None
         self._resize_dir = ""
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -34,6 +35,14 @@ class CardWindow(QWidget):
         self._locked = locked
         if locked:
             self.setCursor(Qt.ArrowCursor)
+
+    def set_compact_limits(self, compact: bool) -> None:
+        extra = MARGIN * 2
+        self._height_locked = compact
+        if compact:
+            self.setMinimumSize(280 + extra, 72 + extra)
+        else:
+            self.setMinimumSize(360 + extra, 480 + extra)
 
     def apply_flags(self, always_on_top: bool = False) -> None:
         flags = Qt.FramelessWindowHint | Qt.Window | Qt.Tool
@@ -79,6 +88,12 @@ class CardWindow(QWidget):
         right = abs(x - rect.right()) <= RESIZE_BORDER
         top = abs(y - rect.top()) <= RESIZE_BORDER
         bottom = abs(y - rect.bottom()) <= RESIZE_BORDER
+        if self._height_locked:
+            if left:
+                return "l"
+            if right:
+                return "r"
+            return ""
         if top and left:
             return "tl"
         if top and right:

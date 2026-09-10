@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -16,7 +17,7 @@ from PySide6.QtWidgets import (
 from model.memo import Memo
 from service.memo_service import MemoService
 from ui.datetime_picker import IconButton
-from ui.icons import stroke_icon
+from ui.icons import asset_pixmap, stroke_icon
 from ui.page_utils import clear_layout, empty_label, make_scroll
 from ui.styles import Theme
 
@@ -117,6 +118,17 @@ class MemoCard(QWidget):
             self.delete_requested.emit(self.memo)
 
 
+class MemoBodyEdit(QPlainTextEdit):
+    save_requested = Signal()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter) and not event.modifiers() & Qt.ShiftModifier:
+            self.save_requested.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class MemoPage(QWidget):
     changed = Signal()
 
@@ -126,10 +138,6 @@ class MemoPage(QWidget):
         self._memos = memos
         self._current: Memo | None = None
         self._loading = False
-        self._timer = QTimer(self)
-        self._timer.setSingleShot(True)
-        self._timer.setInterval(700)
-        self._timer.timeout.connect(self._autosave)
 
         head = QHBoxLayout()
         head.setSpacing(8)
@@ -143,6 +151,14 @@ class MemoPage(QWidget):
         head.addWidget(self.add_btn)
 
         self.list_caption = QLabel()
+        self.caption_icon = QLabel()
+        self.caption_icon.setFixedSize(16, 16)
+        self.caption_icon.setPixmap(asset_pixmap("nav_memo", 16))
+        caption_row = QHBoxLayout()
+        caption_row.setContentsMargins(2, 0, 2, 0)
+        caption_row.setSpacing(6)
+        caption_row.addWidget(self.caption_icon)
+        caption_row.addWidget(self.list_caption, 1)
         host = QWidget()
         self.list_layout = QVBoxLayout(host)
         self.list_layout.setContentsMargins(0, 0, 4, 0)
@@ -164,8 +180,8 @@ class MemoPage(QWidget):
         title_row.addWidget(self.title_edit, 1)
         title_row.addWidget(self.status)
 
-        self.editor = QPlainTextEdit()
-        self.editor.setPlaceholderText("记下过程、想法或会议要点")
+        self.editor = MemoBodyEdit()
+        self.editor.setPlaceholderText("写下备忘，Enter 保存，Shift+Enter 换行")
         self.editor.setFrameStyle(QPlainTextEdit.NoFrame)
 
         footer = QHBoxLayout()
@@ -185,14 +201,17 @@ class MemoPage(QWidget):
 
         for widget in (self.title_edit, self.editor, self.tags_edit):
             widget.textChanged.connect(self._on_edit)
-        self.pin_check.toggled.connect(self._on_edit)
-        self.report_check.toggled.connect(self._on_edit)
+        self.title_edit.returnPressed.connect(self._save_from_enter)
+        self.tags_edit.returnPressed.connect(self._save_from_enter)
+        self.editor.save_requested.connect(self._save_from_enter)
+        self.pin_check.toggled.connect(self._on_flag_changed)
+        self.report_check.toggled.connect(self._on_flag_changed)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
         root.addLayout(head)
-        root.addWidget(self.list_caption)
+        root.addLayout(caption_row)
         root.addWidget(self.scroll, 2)
         root.addWidget(self.editor_panel, 3)
         self._apply_editor_style()
@@ -201,6 +220,7 @@ class MemoPage(QWidget):
     def apply_theme(self, theme: Theme) -> None:
         self._theme = theme
         self.add_btn.set_color(theme.accent)
+        self.caption_icon.setPixmap(asset_pixmap("nav_memo", 16))
         self._apply_editor_style()
         self.reload()
 
@@ -231,6 +251,11 @@ class MemoPage(QWidget):
             """
         )
 
+    def hideEvent(self, event) -> None:
+        if not self._loading:
+            self.flush()
+        super().hideEvent(event)
+
     def create_memo(self) -> None:
         self.flush()
         self._load(None)
@@ -241,8 +266,7 @@ class MemoPage(QWidget):
         self._load(memo)
 
     def flush(self) -> None:
-        self._timer.stop()
-        self._autosave()
+        self._save(finish_new=False)
 
     def reload(self, *_args) -> None:
         keep_id = self._current.id if self._current else None
@@ -250,7 +274,7 @@ class MemoPage(QWidget):
         self.list_caption.setText(f"全部备忘  {len(memos)}" if memos else "全部备忘")
         clear_layout(self.list_layout)
         if not memos:
-            self.list_layout.addWidget(empty_label("还没有备忘，点右上角 ＋ 写一条", self._theme))
+            self.list_layout.addWidget(empty_label("还没有备忘，在下方输入后按 Enter 保存", self._theme))
             self.list_layout.addStretch()
             return
         for memo in memos:
@@ -274,24 +298,45 @@ class MemoPage(QWidget):
         self.tags_edit.setText(memo.tags if memo else "")
         self.pin_check.setChecked(bool(memo and memo.is_pinned))
         self.report_check.setChecked(True if memo is None else memo.include_in_report)
-        self.status.setText("自动保存" if memo else "输入后自动保存")
+        self.status.setText("Enter 保存")
         self._loading = False
         self.reload()
 
     def _on_edit(self, *_args) -> None:
         if self._loading:
             return
-        self.status.setText("保存中…")
-        self._timer.start()
+        self.status.setText("未保存")
 
-    def _autosave(self) -> None:
+    def _on_flag_changed(self, *_args) -> None:
         if self._loading:
             return
+        if self._current is None:
+            self.status.setText("未保存")
+            return
+        self._save(finish_new=False)
+
+    def _save_from_enter(self) -> None:
+        self._save(finish_new=True)
+
+    def _save(self, *, finish_new: bool) -> bool:
+        if self._loading:
+            return False
         content = self.editor.toPlainText().strip()
         title = self.title_edit.text().strip()
         tags = self.tags_edit.text().strip()
         if not content:
-            return
+            if title and self._current is None:
+                content = title
+                title = ""
+                self._loading = True
+                self.editor.setPlainText(content)
+                self.title_edit.clear()
+                self._loading = False
+            else:
+                if not finish_new:
+                    return False
+                self.status.setText("写点内容再保存")
+                return False
         try:
             created = self._current is None
             if created:
@@ -313,10 +358,13 @@ class MemoPage(QWidget):
                 self._current = self._memos.update_memo(self._current)
             self.status.setText("已保存")
             self.changed.emit()
-            if created:
-                self.reload()
+            self.reload()
+            if created and finish_new:
+                self.editor.setFocus()
+            return True
         except ValueError:
-            pass
+            self.status.setText("内容不能为空")
+            return False
 
     def _toggle_pin(self, memo: Memo) -> None:
         self.flush()

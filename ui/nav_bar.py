@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtWidgets import QHBoxLayout, QSizePolicy, QToolButton, QWidget
 
-from ui.page_utils import style_chip
+from ui.icons import asset_icon, stroke_icon
+from ui.page_utils import style_nav_button
 from ui.styles import Theme
 
 PAGES = [
-    ("today", "今日"),
-    ("todo", "Todo"),
-    ("memo", "备忘录"),
-    ("report", "周报"),
+    ("today", "今日", "nav_today"),
+    ("todo", "Todo", "nav_todo"),
+    ("memo", "备忘", "nav_memo"),
+    ("report", "周报", "nav_report"),
+    ("chat", "问答", "nav_chat"),
 ]
 
 
@@ -21,15 +23,22 @@ class NavBar(QWidget):
         super().__init__(parent)
         self._theme = theme
         self._current = "today"
-        self._buttons: dict[str, QPushButton] = {}
+        self._buttons: dict[str, QToolButton] = {}
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-        for key, label in PAGES:
-            button = QPushButton(label)
+        layout.setSpacing(4)
+        for key, label, icon_name in PAGES:
+            button = QToolButton()
             button.setCursor(Qt.PointingHandCursor)
             button.setCheckable(True)
-            button.setFixedHeight(30)
+            button.setAutoRaise(True)
+            button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+            button.setIconSize(QSize(20, 20))
+            button.setIcon(self._page_icon(icon_name))
+            button.setText(label)
+            button.setToolTip(label)
+            button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            button.setFixedHeight(48)
             button.clicked.connect(lambda _=False, value=key: self.set_page(value, emit=True))
             layout.addWidget(button, 1)
             self._buttons[key] = button
@@ -45,8 +54,16 @@ class NavBar(QWidget):
 
     def apply_theme(self, theme: Theme) -> None:
         self._theme = theme
+        for key, _label, icon_name in PAGES:
+            self._buttons[key].setIcon(self._page_icon(icon_name))
         self.refresh()
+
+    def _page_icon(self, name: str):
+        icon = asset_icon(name, 20)
+        if icon.isNull():
+            return stroke_icon("chat" if name == "nav_chat" else "sparkle", self._theme.accent, 20)
+        return icon
 
     def refresh(self) -> None:
         for key, button in self._buttons.items():
-            style_chip(button, self._theme, key == self._current)
+            style_nav_button(button, self._theme, key == self._current)

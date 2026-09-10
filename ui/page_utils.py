@@ -58,6 +58,30 @@ def style_chip(button: QPushButton, theme: Theme, active: bool) -> None:
     )
 
 
+def style_nav_button(button, theme: Theme, active: bool) -> None:
+    bg = theme.chip_active if active else "transparent"
+    color = theme.text if active else theme.text_secondary
+    border = theme.accent if active else "transparent"
+    radius = max(10, theme.chip_radius)
+    button.setChecked(active)
+    button.setStyleSheet(
+        f"""
+        QToolButton {{
+            background: {bg};
+            color: {color};
+            border: 1px solid {border};
+            border-radius: {radius}px;
+            padding: 6px 2px 5px 2px;
+            font-size: 11px;
+            font-weight: {"600" if active else "500"};
+        }}
+        QToolButton:hover {{
+            background: {theme.hover};
+        }}
+        """
+    )
+
+
 def style_quick_add(row: QWidget, theme: Theme) -> None:
     row.setStyleSheet(
         f"""

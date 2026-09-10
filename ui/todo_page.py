@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 
 from model.task import Task
+from ui.icons import asset_pixmap
 from ui.page_utils import clear_layout, empty_label, make_scroll, section_label, style_chip
 from ui.styles import Theme
 from ui.task_item import TaskItem
@@ -36,6 +37,14 @@ class TodoPage(QWidget):
         self.search.setPlaceholderText("搜索标题、描述、分类")
         self.search.setFixedHeight(34)
         self.search.textChanged.connect(self._on_search)
+        self.search_icon = QLabel()
+        self.search_icon.setFixedSize(18, 18)
+        self.search_icon.setPixmap(asset_pixmap("nav_todo", 18))
+        search_row = QHBoxLayout()
+        search_row.setContentsMargins(2, 0, 4, 0)
+        search_row.setSpacing(8)
+        search_row.addWidget(self.search_icon)
+        search_row.addWidget(self.search, 1)
 
         filter_row = QHBoxLayout()
         filter_row.setContentsMargins(0, 0, 0, 0)
@@ -58,13 +67,14 @@ class TodoPage(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
-        root.addWidget(self.search)
+        root.addLayout(search_row)
         root.addLayout(filter_row)
         root.addWidget(make_scroll(host), 1)
         self._refresh_filters()
 
     def apply_theme(self, theme: Theme) -> None:
         self._theme = theme
+        self.search_icon.setPixmap(asset_pixmap("nav_todo", 18))
         self._refresh_filters()
 
     def set_filter(self, mode: str) -> None:

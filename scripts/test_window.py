@@ -32,7 +32,23 @@ def test_window_builds() -> None:
         window.reload_all()
         titles = [item.task.title for item in window.today_page._items + window.todo_page._items]
         assert "窗口冒烟测试" in titles
-        assert window.stack.count() == 4
+        assert window.stack.count() == 5
+        window.toggle_compact()
+        app.processEvents()
+        assert window._compact is True
+        assert window.chat_page._compact is True
+        assert window.height() < 320
+        window.toggle_compact()
+        app.processEvents()
+        assert window._compact is False
+        dialog = window.chat_page
+        dialog._refresh_model_button()
+        assert "选择模型" in dialog.model_btn.text() or "·" in dialog.model_btn.text()
+        from ui.chat_model_dialog import ChatModelDialog
+
+        picker = ChatModelDialog(theme, ctx.reports, None, 0.3, 1024, window)
+        assert picker.windowTitle() == "问答模型"
+        picker.close()
         if QSystemTrayIcon.isSystemTrayAvailable():
             assert window.tray.isVisible()
         window._really_quit = True

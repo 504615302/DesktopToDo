@@ -14,6 +14,7 @@ class TitleBar(QWidget):
     pin_clicked = Signal()
     theme_selected = Signal(str)
     minimize_clicked = Signal()
+    compact_clicked = Signal()
     close_clicked = Signal()
 
     def __init__(self, theme: Theme, parent=None):
@@ -21,18 +22,18 @@ class TitleBar(QWidget):
         self._theme = theme
         self._locked = False
         self._pinned = False
+        self._compact = False
         self._drag_offset: QPoint | None = None
-        self.setFixedHeight(46)
+        self.setFixedHeight(44)
         self._title = QLabel(theme.title)
         self._title.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {theme.text};")
-        self._date = QLabel()
-        self._date.setStyleSheet(f"font-size: 12px; color: {theme.text_secondary};")
 
         self.lock_btn = IconButton("unlock", theme.text_secondary, "锁定位置")
         self.pin_btn = IconButton("pin", theme.text_secondary, "窗口置顶")
         self.theme_btn = IconButton("theme", theme.text_secondary, "切换主题")
         self.settings_btn = IconButton("settings", theme.text_secondary, "设置")
         self.min_btn = IconButton("minimize", theme.text_secondary, "最小化")
+        self.compact_btn = IconButton("collapse", theme.text_secondary, "折叠为问答")
         self.close_btn = IconButton("close", theme.text_secondary, "关闭到托盘")
 
         self.lock_btn.clicked.connect(self.lock_clicked.emit)
@@ -40,6 +41,7 @@ class TitleBar(QWidget):
         self.theme_btn.clicked.connect(self._open_theme_menu)
         self.settings_btn.clicked.connect(self.settings_clicked.emit)
         self.min_btn.clicked.connect(self.minimize_clicked.emit)
+        self.compact_btn.clicked.connect(self.compact_clicked.emit)
         self.close_btn.clicked.connect(self.close_clicked.emit)
 
         layout = QHBoxLayout(self)
@@ -47,17 +49,17 @@ class TitleBar(QWidget):
         layout.setSpacing(2)
         layout.addWidget(self._title)
         layout.addStretch()
-        layout.addWidget(self._date)
-        layout.addWidget(self.theme_btn)
         layout.addWidget(self.pin_btn)
-        layout.addWidget(self.lock_btn)
+        layout.addWidget(self.theme_btn)
         layout.addWidget(self.settings_btn)
+        layout.addWidget(self.lock_btn)
         layout.addWidget(self.min_btn)
+        layout.addWidget(self.compact_btn)
         layout.addWidget(self.close_btn)
         self._title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
     def set_date(self, text: str) -> None:
-        self._date.setText(text)
+        self._title.setToolTip(text)
 
     def set_locked(self, locked: bool) -> None:
         self._locked = locked
@@ -73,17 +75,28 @@ class TitleBar(QWidget):
         self.pin_btn.set_kind(kind, color)
         self.pin_btn.setToolTip("取消置顶" if pinned else "窗口置顶")
 
+    def set_compact(self, compact: bool) -> None:
+        self._compact = compact
+        self._title.setText("问答" if compact else self._theme.title)
+        for button in (self.theme_btn, self.settings_btn, self.lock_btn, self.min_btn):
+            button.setVisible(not compact)
+        kind = "expand" if compact else "collapse"
+        color = self._theme.accent if compact else self._theme.text_secondary
+        self.compact_btn.set_kind(kind, color)
+        self.compact_btn.setToolTip("展开窗口" if compact else "折叠为问答")
+
     def apply_theme(self, theme: Theme) -> None:
         self._theme = theme
-        self._title.setText(theme.title)
         self._title.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {theme.text};")
-        self._date.setStyleSheet(f"font-size: 12px; color: {theme.text_secondary};")
+        if not self._compact:
+            self._title.setText(theme.title)
         self.theme_btn.set_color(theme.text_secondary)
         self.settings_btn.set_color(theme.text_secondary)
         self.min_btn.set_color(theme.text_secondary)
         self.close_btn.set_color(theme.text_secondary)
         self.set_locked(self._locked)
         self.set_pinned(self._pinned)
+        self.set_compact(self._compact)
 
     def _open_theme_menu(self) -> None:
         menu = QMenu(self)

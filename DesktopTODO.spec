@@ -9,7 +9,7 @@ a = Analysis(
     ["main.py"],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[],
+    datas=[(str(ROOT / "resources"), "resources")],
     hiddenimports=["PySide6.QtNetwork"],
     hookspath=[],
     hooksconfig={},

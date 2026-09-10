@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMenu,
     QMessageBox,
+    QSizePolicy,
     QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
@@ -31,6 +32,7 @@ from service.hotkey_service import HotkeyService
 from service.reminder_service import ReminderService
 from ui.ai_model_dialog import AIModelListDialog
 from ui.card_window import MARGIN, CardWindow
+from ui.chat_page import ChatPage
 from ui.dialogs.quick_input_dialog import QuickInputDialog
 from ui.dialogs.work_result_dialog import WorkResultDialog
 from ui.icons import app_icon, stroke_icon
@@ -40,6 +42,7 @@ from ui.page_utils import style_quick_add
 from ui.report_page import ReportPage
 from ui.settings_dialog import SettingsDialog
 from ui.styles import Theme, build_stylesheet, resolve_theme
+from ui.support_dialog import SupportAuthorDialog
 from ui.task_dialog import TaskDialog
 from ui.template_dialog import TemplateListDialog
 from ui.title_bar import TitleBar
@@ -59,6 +62,9 @@ class MainWindow(CardWindow):
         self._alert_anim: QPropertyAnimation | None = None
         self._alert_origin: QPoint | None = None
         self._hotkeys: HotkeyService | None = None
+        self._compact = False
+        self._full_geometry = None
+        self._page_before_compact = "today"
         super().__init__(self.theme, resizable=True)
         self.setWindowTitle("DesktopToDo")
         self.setWindowIcon(app_icon())
@@ -74,12 +80,14 @@ class MainWindow(CardWindow):
         self._restore_geometry()
         self.set_page(self.settings.current_page or "today")
         self.reload_all()
+        if self.settings.compact_mode:
+            QTimer.singleShot(0, self._enter_compact)
         QTimer.singleShot(400, self._install_hotkeys)
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(MARGIN + 14, MARGIN + 8, MARGIN + 14, MARGIN + 12)
-        root.setSpacing(8)
+        root.setContentsMargins(MARGIN + 14, MARGIN + 8, MARGIN + 14, MARGIN + 10)
+        root.setSpacing(6)
 
         self.title_bar = TitleBar(self.theme)
         self.title_bar.set_date(datetime.now().strftime("%m-%d"))
@@ -90,6 +98,7 @@ class MainWindow(CardWindow):
         self.title_bar.pin_clicked.connect(self.toggle_pin)
         self.title_bar.theme_selected.connect(self.set_theme_mode)
         self.title_bar.minimize_clicked.connect(self.hide)
+        self.title_bar.compact_clicked.connect(self.toggle_compact)
         self.title_bar.close_clicked.connect(self.hide)
         root.addWidget(self.title_bar)
 
@@ -108,6 +117,7 @@ class MainWindow(CardWindow):
         self.todo_page = TodoPage(self.theme, self.settings.filter_mode)
         self.memo_page = MemoPage(self.theme, self.ctx.memos)
         self.report_page = ReportPage(self.theme, self.ctx)
+        self.chat_page = ChatPage(self.theme, self.ctx)
         for page in (self.today_page, self.todo_page):
             page.task_toggled.connect(self._on_toggled)
             page.edit_requested.connect(self.edit_task)
@@ -121,7 +131,9 @@ class MainWindow(CardWindow):
         self.stack.addWidget(self.todo_page)
         self.stack.addWidget(self.memo_page)
         self.stack.addWidget(self.report_page)
+        self.stack.addWidget(self.chat_page)
         root.addWidget(self.stack, 1)
+        self.chat_page.layout_changed.connect(self._fit_compact_size)
 
         add_row = QWidget()
         add_layout = QHBoxLayout(add_row)
@@ -150,6 +162,8 @@ class MainWindow(CardWindow):
             ("新增 Todo", self.quick_add_from_tray),
             ("新增备忘录", self.quick_memo_from_tray),
             ("AI 周报", self.open_report),
+            ("AI 问答", self.open_chat),
+            ("支持作者", self.open_support),
             ("设置", self.open_settings),
         ]
         for text, slot in actions:
@@ -170,6 +184,7 @@ class MainWindow(CardWindow):
         QShortcut(QKeySequence("Ctrl+Alt+T"), self, activated=self.quick_add_from_tray)
         QShortcut(QKeySequence("Ctrl+Alt+N"), self, activated=self.quick_memo_from_tray)
         QShortcut(QKeySequence("Ctrl+Alt+W"), self, activated=self.open_report)
+        QShortcut(QKeySequence("Ctrl+Alt+Q"), self, activated=self.open_chat)
 
     def _install_hotkeys(self) -> None:
         hwnd = int(self.winId())
@@ -184,6 +199,8 @@ class MainWindow(CardWindow):
             self.quick_memo_from_tray()
         elif action == "report":
             self.open_report()
+        elif action == "chat":
+            self.open_chat()
 
     def _setup_reminders(self) -> None:
         self.reminder_service = ReminderService(self.task_service, self)
@@ -205,10 +222,14 @@ class MainWindow(CardWindow):
         self.todo_page.apply_theme(self.theme)
         self.memo_page.apply_theme(self.theme)
         self.report_page.apply_theme(self.theme)
+        self.chat_page.apply_theme(self.theme)
         self._style_quick_add()
         self._style_banner()
         self._sync_quick_add_mode()
         self.apply_flags(self.settings.always_on_top)
+        if self._compact:
+            self._apply_compact_chrome()
+            QTimer.singleShot(0, self._fit_compact_size)
         if show:
             self.show()
         if reload:
@@ -232,9 +253,11 @@ class MainWindow(CardWindow):
         )
 
     def set_page(self, key: str) -> None:
-        mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3}
+        mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3, "chat": 4}
         index = mapping.get(key, 0)
         key = list(mapping.keys())[index]
+        if self._compact and key != "chat":
+            self._exit_compact()
         self.stack.setCurrentIndex(index)
         self.nav.set_page(key)
         self.settings_service.update(current_page=key)
@@ -242,8 +265,13 @@ class MainWindow(CardWindow):
         self._sync_quick_add_mode()
         if key == "report":
             self.report_page.reload_options()
+        elif key == "chat":
+            self.chat_page.reload_options()
 
     def _sync_quick_add_mode(self) -> None:
+        if self._compact:
+            self.quick_add_row.hide()
+            return
         page = self.settings.current_page
         self.quick_add_row.setVisible(page in {"today", "todo"})
         self.quick_add.setPlaceholderText(self.theme.placeholder)
@@ -258,6 +286,93 @@ class MainWindow(CardWindow):
         self.settings = self.settings_service.settings
         self.apply_appearance(reload=False)
 
+    def toggle_compact(self) -> None:
+        if self._compact:
+            self._exit_compact()
+        else:
+            self._enter_compact()
+
+    def _enter_compact(self) -> None:
+        if self._compact:
+            return
+        self._full_geometry = self.geometry()
+        self._page_before_compact = self.settings.current_page or "today"
+        self._compact = True
+        self._apply_compact_chrome()
+        self.chat_page.reload_options()
+        self.chat_page.set_compact(True)
+        self.settings_service.update(compact_mode=True)
+        self.settings = self.settings_service.settings
+        self.show_from_tray()
+        QTimer.singleShot(0, self._fit_compact_size)
+
+    def _exit_compact(self) -> None:
+        if not self._compact:
+            return
+        self._compact = False
+        self.chat_page.set_compact(False)
+        self.set_compact_limits(False)
+        self.title_bar.set_compact(False)
+        self.nav.show()
+        self._sync_stack_size_policy()
+        self.settings_service.update(compact_mode=False)
+        self.settings = self.settings_service.settings
+        self.set_page(self._page_before_compact or "today")
+        if self._full_geometry is not None:
+            self.setGeometry(self._full_geometry)
+        self.clamp_to_screens()
+
+    def _apply_compact_chrome(self) -> None:
+        self.set_compact_limits(True)
+        self.title_bar.set_compact(True)
+        self.nav.hide()
+        self.banner.hide()
+        self.quick_add_row.hide()
+        self.stack.setCurrentIndex(4)
+        self._sync_stack_size_policy()
+
+    def _sync_stack_size_policy(self) -> None:
+        for index in range(self.stack.count()):
+            page = self.stack.widget(index)
+            if self._compact:
+                expanding = page is self.chat_page
+                vertical = QSizePolicy.Minimum if expanding else QSizePolicy.Ignored
+                page.setSizePolicy(QSizePolicy.Expanding if expanding else QSizePolicy.Ignored, vertical)
+            else:
+                page.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.stack.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Minimum if self._compact else QSizePolicy.Expanding,
+        )
+        self.stack.setMinimumHeight(0)
+
+    def _fit_compact_size(self) -> None:
+        if not self._compact:
+            return
+        margins = self.layout().contentsMargins()
+        spacing = self.layout().spacing()
+        needed = (
+            margins.top()
+            + margins.bottom()
+            + self.title_bar.height()
+            + spacing
+            + self.chat_page.compact_height()
+        )
+        min_h = margins.top() + margins.bottom() + self.title_bar.height() + spacing + 36
+        max_h = min_h + spacing + 280 + 24
+        height = min(max(int(needed), int(min_h)), int(max_h))
+        geo = self.geometry()
+        if abs(geo.height() - height) < 2:
+            return
+        screen = QGuiApplication.screenAt(geo.center())
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        avail = screen.availableGeometry()
+        y = geo.y()
+        if y + height > avail.bottom():
+            y = max(avail.top(), avail.bottom() - height)
+        self.setGeometry(geo.x(), y, geo.width(), height)
+
     def set_theme_mode(self, name: str) -> None:
         self.settings_service.update(theme=name)
         self.settings = self.settings_service.settings
@@ -270,6 +385,7 @@ class MainWindow(CardWindow):
         self.todo_page.reload(tasks)
         self.memo_page.reload()
         self.report_page.reload_options()
+        self.chat_page.reload_options()
 
     def _on_todo_filter(self, mode: str) -> None:
         self.settings_service.update(filter_mode=mode)
@@ -279,6 +395,7 @@ class MainWindow(CardWindow):
     def _on_memo_changed(self) -> None:
         self.today_page.reload(self.task_service.list_tasks(), self.ctx.memos.list_memos())
         self.report_page.reload_options()
+        self.chat_page.reload_options()
 
     def _on_quick_add(self) -> None:
         text = self.quick_add.text().strip()
@@ -359,6 +476,7 @@ class MainWindow(CardWindow):
         dialog.theme_previewed.connect(lambda name: self._preview_theme(name))
         dialog.ai_btn.clicked.connect(lambda: self._open_models(dialog))
         dialog.template_btn.clicked.connect(lambda: self._open_templates(dialog))
+        dialog.support_btn.clicked.connect(lambda: self.open_support(dialog))
         accepted = dialog.exec() == SettingsDialog.DialogCode.Accepted
         if not accepted:
             self.settings = AppSettings.from_dict(snapshot)
@@ -371,14 +489,20 @@ class MainWindow(CardWindow):
         self.settings = self.settings_service.settings
         self.apply_appearance()
         self.report_page.reload_options()
+        self.chat_page.reload_options()
 
     def _open_models(self, parent) -> None:
         AIModelListDialog(self.theme, self.ctx.reports, parent).exec()
         self.report_page.reload_options()
+        self.chat_page.reload_options()
 
     def _open_templates(self, parent) -> None:
         TemplateListDialog(self.theme, self.ctx.reports, parent).exec()
         self.report_page.reload_options()
+
+    def open_support(self, parent=None) -> None:
+        host = parent if isinstance(parent, QWidget) else self
+        SupportAuthorDialog(self.theme, host).exec()
 
     def _preview_theme(self, name: str) -> None:
         self.settings.theme = name
@@ -415,6 +539,13 @@ class MainWindow(CardWindow):
             anim.setKeyValueAt(0.28, origin + QPoint(-12, 0))
             anim.setKeyValueAt(0.44, origin + QPoint(10, 0))
             anim.setKeyValueAt(0.62, origin + QPoint(-6, 0))
+            anim.setKeyValueAt(1.0, origin)
+        elif self.theme.name == "tech":
+            anim.setKeyValueAt(0.0, origin)
+            anim.setKeyValueAt(0.16, origin + QPoint(8, -4))
+            anim.setKeyValueAt(0.32, origin + QPoint(-6, 2))
+            anim.setKeyValueAt(0.5, origin + QPoint(4, -2))
+            anim.setKeyValueAt(0.72, origin)
             anim.setKeyValueAt(1.0, origin)
         else:
             anim.setKeyValueAt(0.0, origin)
@@ -469,6 +600,14 @@ class MainWindow(CardWindow):
         self.set_page("report")
         self.show_from_tray()
 
+    def open_chat(self) -> None:
+        if self._compact:
+            self.show_from_tray()
+            self.chat_page.focus_input()
+            return
+        self.set_page("chat")
+        self.show_from_tray()
+
     def _on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self.show_from_tray()
@@ -505,11 +644,20 @@ class MainWindow(CardWindow):
 
     def _persist_geometry(self) -> None:
         geo = self.geometry()
+        if self._compact:
+            self.settings_service.update(
+                window_x=geo.x(),
+                window_y=geo.y(),
+                compact_mode=True,
+            )
+            self.settings = self.settings_service.settings
+            return
         self.settings_service.update(
             window_x=geo.x(),
             window_y=geo.y(),
             window_width=max(360, geo.width() - MARGIN * 2),
             window_height=max(400, geo.height() - MARGIN * 2),
+            compact_mode=False,
         )
         self.settings = self.settings_service.settings
 

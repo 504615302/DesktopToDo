@@ -5,6 +5,7 @@ from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from model.settings import AppSettings
 from ui.datetime_picker import IconButton
+from ui.icons import stroke_icon
 from ui.styles import THEME_CHOICES, Theme, resolve_theme
 
 
@@ -61,13 +63,13 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(self._label("主题风格"))
         self._theme_buttons: dict[str, QPushButton] = {}
-        theme_row = QHBoxLayout()
-        theme_row.setSpacing(8)
-        for label, value in THEME_CHOICES:
+        theme_grid = QGridLayout()
+        theme_grid.setSpacing(8)
+        for index, (label, value) in enumerate(THEME_CHOICES):
             button = QPushButton(label)
             button.setCheckable(True)
             button.setCursor(Qt.PointingHandCursor)
-            button.setFixedHeight(44)
+            button.setFixedHeight(40)
             sample = resolve_theme(value)
             button.setStyleSheet(
                 f"""
@@ -86,9 +88,9 @@ class SettingsDialog(QDialog):
                 """
             )
             button.clicked.connect(lambda _checked=False, name=value: self._select_theme(name))
-            theme_row.addWidget(button)
+            theme_grid.addWidget(button, index // 2, index % 2)
             self._theme_buttons[value] = button
-        layout.addLayout(theme_row)
+        layout.addLayout(theme_grid)
         self._refresh_theme_buttons()
 
         opacity_head = QHBoxLayout()
@@ -112,10 +114,14 @@ class SettingsDialog(QDialog):
 
         self.ai_btn = QPushButton("AI 模型")
         self.template_btn = QPushButton("周报模板")
+        self.support_btn = QPushButton("支持作者")
         self.ai_btn.setAutoDefault(False)
         self.template_btn.setAutoDefault(False)
+        self.support_btn.setAutoDefault(False)
+        self.support_btn.setIcon(stroke_icon("heart", theme.accent, 16))
         layout.addWidget(self.ai_btn)
         layout.addWidget(self.template_btn)
+        layout.addWidget(self.support_btn)
 
         buttons = QHBoxLayout()
         buttons.addStretch()

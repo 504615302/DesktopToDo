@@ -1,27 +1,38 @@
-# Desktop TODO
+# DesktopToDo
 
-运行在 Windows 桌面的轻量待办工具。打开电脑就能看到未完成任务，支持快速新增、勾选完成、编辑删除，数据保存在本地 SQLite。
+Windows 桌面待办卡片：待办、备忘、AI 周报和问答。关闭后进托盘，数据保存在本地。
 
-## 第一阶段功能
+[下载最新版](https://github.com/504615302/DesktopToDo/releases/latest)
 
-- 无边框桌面卡片窗口，支持拖动、缩放、圆角和半透明
-- 快速新增任务（底部输入后按 Enter）
-- 勾选完成 / 取消完成，已完成任务自动分组并加删除线
-- 双击或右键编辑任务（标题、描述、优先级）
-- 删除任务；重要 / 紧急任务会二次确认
-- SQLite 本地存储：`data/todo.db`
-- 窗口置顶、位置和大小记忆
-- 关闭后进入系统托盘，不退出
-- 开机自动启动
-- 浅色 / 深色 / 跟随 Windows 主题
-- PyInstaller 打包为 EXE
+## 下载
 
-## 环境要求
+打开 [Releases](https://github.com/504615302/DesktopToDo/releases/latest)，按需要选一种：
 
-- Windows 10/11
-- Python 3.10+
+| 文件 | 用途 |
+| --- | --- |
+| **DesktopTODO.exe** | 绿色版，下载后双击就能用 |
+| **DesktopToDo-Setup.exe** | 安装包，写入开始菜单，可选桌面图标 |
 
-## 运行
+系统要求：Windows 10 / 11 64 位。
+
+### 绿色版
+
+1. 下载 `DesktopTODO.exe`
+2. 放到任意文件夹后双击运行
+3. 任务和设置写在 exe 同目录的 `data/`、`config/`，方便一起备份
+
+### 安装包
+
+1. 下载并运行 `DesktopToDo-Setup.exe`（不需要管理员权限）
+2. 安装到当前用户目录，可勾选创建桌面图标
+3. 从开始菜单或桌面打开 **DesktopToDo**
+4. 数据和配置在 `%LOCALAPPDATA%\DesktopToDo\`
+
+卸载：Windows「已安装的应用」里卸载即可。卸载不会删除你的待办数据。
+
+## 开发运行
+
+需要 Python 3.10+。
 
 ```powershell
 py -3 -m venv .venv
@@ -30,41 +41,47 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## 打包 EXE
+## 本地打包
 
 ```powershell
 .\build.ps1
 ```
 
-生成文件：
+生成：
 
 ```text
-dist\DesktopTODO.exe
+dist\DesktopTODO.exe          绿色版
+dist\DesktopToDo-Setup.exe    安装包（需已安装 Inno Setup）
 ```
 
-双击即可运行。任务数据和窗口配置写在 EXE 同目录的 `data/` 与 `config/` 下，方便备份。
+打 GitHub Release：把 `v1.1.0` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
 
 ## 使用说明
 
 | 操作 | 方式 |
 | --- | --- |
-| 新增任务 | 底部输入框回车，或托盘菜单「添加任务」 |
+| 新增任务 | 底部输入框回车，或托盘「新增 Todo」 |
 | 完成任务 | 点击左侧复选框 |
-| 编辑任务 | 双击、右键「编辑」，或悬停后点编辑按钮 |
-| 删除任务 | 右键「删除任务」，或悬停后点删除按钮 |
-| 置顶 | 标题栏图钉按钮 |
-| 设置 | 标题栏齿轮，或托盘菜单「设置」 |
+| 编辑任务 | 双击或右键编辑 |
+| 备忘 | 备忘页输入后按 Enter 保存 |
+| 问答 | 问答页提问；折叠窗口后只留输入框 |
+| 置顶 / 主题 / 设置 | 标题栏按钮 |
 | 退出 | 托盘菜单「退出」 |
 
-关闭窗口或点击最小化会隐藏到托盘，不会退出程序。
+关闭窗口或最小化会隐藏到托盘，不会退出。
 
 ## 数据位置
 
+绿色版：
+
 ```text
-config/settings.json    窗口位置、置顶、主题、开机启动等
-data/todo.db            任务数据
+config/settings.json
+data/todo.db
 ```
 
-## 后续版本
+安装版：
 
-截止时间、提醒、搜索、标签、分类、全局快捷键和重复任务将在第二阶段加入。
+```text
+%LOCALAPPDATA%\DesktopToDo\config\settings.json
+%LOCALAPPDATA%\DesktopToDo\data\todo.db
+```

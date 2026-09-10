@@ -74,24 +74,24 @@ BUSINESS = Theme(
     radius=8,
     chip_radius=4,
     check_radius=3,
-    bg="#102033",
-    surface="#173049",
-    hover="#1E3C58",
-    border="#2C4A66",
-    text="#E7EEF6",
-    text_secondary="#9BB0C4",
-    text_muted="#6E8499",
-    accent="#C9A227",
-    accent_soft="#3A3318",
-    danger="#E57373",
-    success="#66BB6A",
-    completed="#7A8B9C",
-    shadow="#061018",
-    input_bg="#0C1A2A",
-    chip_active="#3A3318",
-    banner_bg="#C9A227",
-    banner_text="#1A1408",
-    primary_text="#1A1408",
+    bg="#1E3346",
+    surface="#263D52",
+    hover="#2F4B63",
+    border="#3E5C74",
+    text="#E7EEF4",
+    text_secondary="#A8B7C6",
+    text_muted="#8799AB",
+    accent="#C4B47A",
+    accent_soft="#2A3F53",
+    danger="#DE8C8C",
+    success="#73BE79",
+    completed="#8B9BAA",
+    shadow="#152232",
+    input_bg="#1B3043",
+    chip_active="#314D64",
+    banner_bg="#2A3F53",
+    banner_text="#D2C496",
+    primary_text="#1A1C14",
 )
 
 MINIMAL = Theme(
@@ -124,13 +124,44 @@ MINIMAL = Theme(
     primary_text="#FFFFFF",
 )
 
+TECH = Theme(
+    name="tech",
+    label="科技风",
+    title="任务终端",
+    placeholder="> 输入任务，按 Enter 保存",
+    font_family='"Microsoft YaHei UI", "Segoe UI", sans-serif',
+    font_size=13,
+    radius=10,
+    chip_radius=6,
+    check_radius=4,
+    bg="#070B14",
+    surface="#101826",
+    hover="#162033",
+    border="#1C3D4A",
+    text="#D7F6FF",
+    text_secondary="#7FB8C9",
+    text_muted="#4E7A8A",
+    accent="#2EE6D6",
+    accent_soft="#0C2A30",
+    danger="#FF5D7A",
+    success="#3DFF9A",
+    completed="#4A6B78",
+    shadow="#02040A",
+    input_bg="#0A111C",
+    chip_active="#12363C",
+    banner_bg="#2EE6D6",
+    banner_text="#041016",
+    primary_text="#041016",
+)
+
 THEMES = {
     "cute": CUTE,
     "business": BUSINESS,
     "minimal": MINIMAL,
+    "tech": TECH,
 }
 
-THEME_CHOICES = [(theme.label, theme.name) for theme in (CUTE, BUSINESS, MINIMAL)]
+THEME_CHOICES = [(theme.label, theme.name) for theme in (CUTE, BUSINESS, MINIMAL, TECH)]
 
 _LEGACY_THEME = {
     "light": "minimal",
@@ -181,7 +212,7 @@ def build_stylesheet(theme: Theme) -> str:
         height: 0;
         background: none;
     }}
-    QLineEdit, QPlainTextEdit, QComboBox, QDateTimeEdit {{
+    QLineEdit, QPlainTextEdit, QComboBox, QDateTimeEdit, QDateEdit {{
         background: {theme.input_bg};
         border: 1px solid {theme.border};
         border-radius: {max(6, theme.chip_radius)}px;
@@ -189,7 +220,7 @@ def build_stylesheet(theme: Theme) -> str:
         color: {theme.text};
         selection-background-color: {theme.accent};
     }}
-    QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QDateTimeEdit:focus {{
+    QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QDateTimeEdit:focus, QDateEdit:focus {{
         border: 1px solid {theme.accent};
     }}
     QComboBox::drop-down {{

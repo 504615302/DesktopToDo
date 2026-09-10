@@ -3,6 +3,8 @@ from __future__ import annotations
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPainterPath, QPen, QPixmap
 
+from app_paths import icon_path
+
 
 def _pixmap(size: int, draw, color: str) -> QPixmap:
     dpr = 2
@@ -29,6 +31,48 @@ def _to_24(painter: QPainter, size: int) -> None:
 
 
 def app_icon(size: int = 64) -> QIcon:
+    _ = size
+    png = icon_path("app.png")
+    ico = icon_path("app.ico")
+    source = png if png.exists() else ico
+    if source.exists():
+        base = QPixmap(str(source))
+        if not base.isNull():
+            icon = QIcon()
+            for value in (16, 32, 48, 64, 128, 256):
+                icon.addPixmap(
+                    base.scaled(value, value, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                )
+            return icon
+    return _drawn_app_icon()
+
+
+def asset_pixmap(name: str, size: int = 20, opacity: float = 1.0) -> QPixmap:
+    path = icon_path(f"{name}.png")
+    if not path.exists():
+        return QPixmap()
+    source = QPixmap(str(path))
+    if source.isNull():
+        return QPixmap()
+    scaled = source.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    if opacity >= 0.99:
+        return scaled
+    faded = QPixmap(scaled.size())
+    faded.fill(Qt.transparent)
+    painter = QPainter(faded)
+    painter.setRenderHint(QPainter.SmoothPixmapTransform)
+    painter.setOpacity(max(0.0, min(1.0, opacity)))
+    painter.drawPixmap(0, 0, scaled)
+    painter.end()
+    return faded
+
+
+def asset_icon(name: str, size: int = 20, opacity: float = 1.0) -> QIcon:
+    pixmap = asset_pixmap(name, size, opacity)
+    return QIcon(pixmap) if not pixmap.isNull() else QIcon()
+
+
+def _drawn_app_icon() -> QIcon:
     def draw(p: QPainter, s: int, _color: QColor) -> None:
         rect = QRectF(1, 1, s - 2, s - 2)
         p.setPen(Qt.NoPen)
@@ -60,6 +104,22 @@ def _draw_kind(p: QPainter, kind: str, c: QColor) -> None:
         p.drawLine(QPointF(18, 6), QPointF(6, 18))
     elif kind == "minimize":
         p.drawLine(QPointF(5, 12), QPointF(19, 12))
+    elif kind == "collapse":
+        p.drawRoundedRect(QRectF(4.5, 5, 15, 14), 2.2, 2.2)
+        p.drawLine(QPointF(4.5, 15.5), QPointF(19.5, 15.5))
+        path = QPainterPath()
+        path.moveTo(8.2, 10.2)
+        path.lineTo(12, 13.6)
+        path.lineTo(15.8, 10.2)
+        p.drawPath(path)
+    elif kind == "expand":
+        p.drawRoundedRect(QRectF(4.5, 4.5, 15, 15), 2.2, 2.2)
+        p.drawLine(QPointF(4.5, 9), QPointF(19.5, 9))
+        path = QPainterPath()
+        path.moveTo(8.2, 14.8)
+        path.lineTo(12, 11.4)
+        path.lineTo(15.8, 14.8)
+        p.drawPath(path)
     elif kind == "settings":
         p.drawEllipse(QPointF(12, 12), 3.2, 3.2)
         for angle in range(0, 360, 60):
@@ -84,18 +144,14 @@ def _draw_kind(p: QPainter, kind: str, c: QColor) -> None:
         path.arcTo(QRectF(9, 5.4, 6, 5.6), 180, -180)
         p.drawPath(path)
     elif kind == "theme":
-        p.drawEllipse(QRectF(4, 4, 16, 16))
-        path = QPainterPath()
-        path.moveTo(12, 4)
-        path.quadTo(12, 12, 20, 12)
-        path.arcTo(QRectF(4, 4, 16, 16), 0, 180)
-        path.closeSubpath()
+        p.drawRoundedRect(QRectF(4.2, 4.2, 7.2, 7.2), 1.6, 1.6)
+        p.drawRoundedRect(QRectF(12.6, 4.2, 7.2, 7.2), 1.6, 1.6)
+        p.drawRoundedRect(QRectF(4.2, 12.6, 7.2, 7.2), 1.6, 1.6)
         p.setBrush(c)
         p.setPen(Qt.NoPen)
-        p.drawPath(path)
+        p.drawRoundedRect(QRectF(12.6, 12.6, 7.2, 7.2), 1.6, 1.6)
         p.setPen(_stroke(c, 1.85))
         p.setBrush(Qt.NoBrush)
-        p.drawEllipse(QRectF(4, 4, 16, 16))
     elif kind == "edit":
         path = QPainterPath()
         path.moveTo(5, 19)
@@ -218,6 +274,24 @@ def _draw_kind(p: QPainter, kind: str, c: QColor) -> None:
         p.drawLine(QPointF(8.5, 9), QPointF(15.5, 9))
         p.drawLine(QPointF(8.5, 12.5), QPointF(15.5, 12.5))
         p.drawLine(QPointF(8.5, 16), QPointF(13, 16))
+    elif kind == "chat":
+        p.drawRoundedRect(QRectF(4.2, 4.5, 15.6, 11.8), 2.4, 2.4)
+        path = QPainterPath()
+        path.moveTo(8, 16)
+        path.lineTo(6.8, 20)
+        path.lineTo(12.2, 16)
+        p.drawPath(path)
+    elif kind == "heart":
+        path = QPainterPath()
+        path.moveTo(12, 19)
+        path.cubicTo(6.2, 14.6, 4.2, 10.8, 4.2, 8.2)
+        path.cubicTo(4.2, 5.8, 6.1, 4.2, 8.4, 4.2)
+        path.cubicTo(10, 4.2, 11.3, 5.1, 12, 6.4)
+        path.cubicTo(12.7, 5.1, 14, 4.2, 15.6, 4.2)
+        path.cubicTo(17.9, 4.2, 19.8, 5.8, 19.8, 8.2)
+        path.cubicTo(19.8, 10.8, 17.8, 14.6, 12, 19)
+        path.closeSubpath()
+        p.drawPath(path)
 
 
 def stroke_icon(kind: str, color: str, size: int = 18) -> QIcon:

@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ui.icons import stroke_icon
+from ui.icons import asset_icon, stroke_icon
 from ui.styles import Theme
 
 WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"]
@@ -26,6 +26,8 @@ class IconButton(QToolButton):
     def __init__(self, kind: str, color: str, tooltip: str = "", size: int = 32, icon_size: int = 16, parent=None):
         super().__init__(parent)
         self._kind = kind
+        self._asset = ""
+        self._asset_opacity = 1.0
         self.setCursor(Qt.PointingHandCursor)
         self.setToolTip(tooltip)
         self.setAutoRaise(True)
@@ -50,11 +52,22 @@ class IconButton(QToolButton):
         )
 
     def set_color(self, color: str) -> None:
-        self.setIcon(stroke_icon(self._kind, color, 18))
+        if self._asset:
+            self.set_asset(self._asset, self._asset_opacity)
+            return
+        glyph = max(18, self.iconSize().width())
+        self.setIcon(stroke_icon(self._kind, color, glyph))
 
     def set_kind(self, kind: str, color: str) -> None:
         self._kind = kind
         self.set_color(color)
+
+    def set_asset(self, name: str, opacity: float = 1.0) -> None:
+        self._asset = name
+        self._asset_opacity = opacity
+        icon = asset_icon(name, max(18, self.iconSize().width()), opacity)
+        if not icon.isNull():
+            self.setIcon(icon)
 
 
 class Chip(QPushButton):

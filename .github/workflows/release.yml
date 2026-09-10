@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Test
+        run: |
+          python scripts/test_services.py
+          python scripts/test_window.py
+
+      - name: Build EXE
+        run: |
+          python scripts/make_icon.py
+          python -m PyInstaller --noconfirm DesktopTODO.spec
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = python -c "from version import __version__; print(__version__)"
+          echo "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DMyAppVersion=${{ steps.version.outputs.value }}" installer\DesktopToDo.iss
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DesktopToDo-windows
+          path: |
+            dist/DesktopTODO.exe
+            dist/DesktopToDo-Setup.exe
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/DesktopTODO.exe
+            dist/DesktopToDo-Setup.exe
+          generate_release_notes: true
+          fail_on_unmatched_files: true

@@ -22,6 +22,12 @@ SYSTEM_PROMPT = """你是一名专业的工作周报整理助手。
 8. 不改变用户模板章节结构
 """
 
+QA_SYSTEM_PROMPT = """你是 DesktopToDo 桌面待办里的问答助手。
+根据用户问题简洁作答，适合在小窗口里阅读。
+若提供了待办或备忘上下文，必须依据这些事实，不要编造不存在的任务或记录。
+可以用短条目列出建议，避免空话套话。
+"""
+
 _COMPLETION_TOKEN_MARKERS = (
     "o1",
     "o3",
@@ -48,13 +54,17 @@ def build_chat_payload(
     *,
     use_completion_tokens: bool,
     include_temperature: bool,
+    system_prompt: str = SYSTEM_PROMPT,
+    history: list[dict] | None = None,
 ) -> dict:
+    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+    if history:
+        messages.extend(history)
+    if user_prompt:
+        messages.append({"role": "user", "content": user_prompt})
     payload: dict = {
         "model": config.model_name,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
+        "messages": messages,
     }
     if include_temperature:
         payload["temperature"] = config.temperature
@@ -86,7 +96,26 @@ class AIService:
         )
         return self._chat(config, key, prompt, max_tokens=config.max_tokens)
 
-    def _chat(self, config: AIModelConfig, api_key: str, user_prompt: str, max_tokens: int) -> str:
+    def ask(self, config: AIModelConfig, history: list[dict]) -> str:
+        key = self._credentials.decrypt(config.encrypted_api_key)
+        return self._chat(
+            config,
+            key,
+            "",
+            max_tokens=config.max_tokens,
+            system_prompt=QA_SYSTEM_PROMPT,
+            history=history,
+        )
+
+    def _chat(
+        self,
+        config: AIModelConfig,
+        api_key: str,
+        user_prompt: str,
+        max_tokens: int,
+        system_prompt: str = SYSTEM_PROMPT,
+        history: list[dict] | None = None,
+    ) -> str:
         if not api_key.strip():
             raise AIClientError("请先填写 Token")
         base = (config.api_base or "").rstrip("/")
@@ -104,6 +133,8 @@ class AIService:
                 max_tokens,
                 use_completion_tokens=use_completion,
                 include_temperature=include_temperature,
+                system_prompt=system_prompt,
+                history=history,
             )
             try:
                 body = self._post(url, api_key, payload)

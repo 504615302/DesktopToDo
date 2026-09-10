@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from model.memo import Memo
 from model.task import Task
+from ui.icons import asset_pixmap
 from ui.page_utils import clear_layout, empty_label, make_scroll, section_label
 from ui.styles import Theme
 from ui.task_item import TaskItem
@@ -28,18 +29,27 @@ class TodayPage(QWidget):
         self.list_layout = QVBoxLayout(host)
         self.list_layout.setContentsMargins(0, 0, 4, 0)
         self.list_layout.setSpacing(2)
+        self.heading_icon = QLabel()
+        self.heading_icon.setFixedSize(22, 22)
+        self.heading_icon.setPixmap(asset_pixmap("nav_today", 22))
         self.heading = QLabel()
         self.heading.setStyleSheet("font-size: 18px; font-weight: 600;")
+        head = QHBoxLayout()
+        head.setContentsMargins(2, 0, 2, 0)
+        head.setSpacing(8)
+        head.addWidget(self.heading_icon)
+        head.addWidget(self.heading, 1)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(6)
-        root.addWidget(self.heading)
+        root.addLayout(head)
         root.addWidget(make_scroll(host), 1)
         self.reload([], [])
 
     def apply_theme(self, theme: Theme) -> None:
         self._theme = theme
         self.heading.setStyleSheet(f"font-size: 18px; font-weight: 600; color: {theme.text};")
+        self.heading_icon.setPixmap(asset_pixmap("nav_today", 22))
 
     def flash_task(self, task_id: int) -> None:
         for item in self._items:
