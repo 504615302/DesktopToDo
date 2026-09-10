@@ -51,7 +51,19 @@ jobs:
           if (-not (Test-Path $iscc)) {
             $iscc = "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
           }
+          $langDir = Split-Path $iscc
+          $langDir = Join-Path $langDir "Languages"
+          New-Item -ItemType Directory -Force -Path $langDir | Out-Null
+          Copy-Item installer\ChineseSimplified.isl (Join-Path $langDir "ChineseSimplified.isl") -Force
           & $iscc "/DMyAppVersion=${{ steps.version.outputs.value }}" installer\DesktopToDo.iss
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Chinese language compile failed; retrying with English wizard."
+            $iss = Get-Content installer\DesktopToDo.iss -Raw -Encoding UTF8
+            $iss = $iss -replace '(?s)\[Languages\][^\[]*', "[Languages]`r`nName: `"english`"; MessagesFile: `"compiler:Default.isl`"`r`n`r`n"
+            Set-Content installer\DesktopToDo.iss $iss -Encoding UTF8
+            & $iscc "/DMyAppVersion=${{ steps.version.outputs.value }}" installer\DesktopToDo.iss
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
