@@ -1,0 +1,11 @@
+{
+  "always_on_top": true,
+  "auto_start": false,
+  "opacity": 0.9,
+  "theme": "system",
+  "window_x": null,
+  "window_y": null,
+  "window_width": 360,
+  "window_height": 600,
+  "filter_mode": "incomplete"
+}
