@@ -10,7 +10,7 @@ from ui.styles import Theme
 
 BLURB = {
     "cute": "如果这个小工具帮到你了，扫码请作者喝杯奶茶 ♪",
-    "business": "如果 DesktopToDo 对你有帮助，欢迎支持作者。",
+    "business": "如果桌面代办对你有帮助，欢迎支持作者。",
     "minimal": "如果这个小工具帮到你了，欢迎扫码支持。",
     "tech": "如果这个工具对你有用，欢迎支持作者。",
 }

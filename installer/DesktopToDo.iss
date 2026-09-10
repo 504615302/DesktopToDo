@@ -1,9 +1,10 @@
-#ifndef MyAppVersion
+﻿#ifndef MyAppVersion
 #define MyAppVersion "1.1.0"
 #endif
 
-#define MyAppName "DesktopToDo"
-#define MyAppPublisher "DesktopToDo"
+#define MyAppName "桌面代办"
+#define MyAppDirName "DesktopToDo"
+#define MyAppPublisher "桌面代办"
 #define MyAppURL "https://github.com/504615302/DesktopToDo"
 #define MyAppExeName "DesktopTODO.exe"
 
@@ -15,7 +16,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}/releases
-DefaultDirName={localappdata}\Programs\{#MyAppName}
+DefaultDirName={localappdata}\Programs\{#MyAppDirName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist

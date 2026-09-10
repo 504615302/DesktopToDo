@@ -48,6 +48,7 @@ from ui.template_dialog import TemplateListDialog
 from ui.title_bar import TitleBar
 from ui.today_page import TodayPage
 from ui.todo_page import TodoPage
+from version import APP_DISPLAY_NAME
 
 
 class MainWindow(CardWindow):
@@ -66,7 +67,7 @@ class MainWindow(CardWindow):
         self._full_geometry = None
         self._page_before_compact = "today"
         super().__init__(self.theme, resizable=True)
-        self.setWindowTitle("DesktopToDo")
+        self.setWindowTitle(APP_DISPLAY_NAME)
         self.setWindowIcon(app_icon())
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
@@ -155,10 +156,10 @@ class MainWindow(CardWindow):
 
     def _setup_tray(self) -> None:
         self.tray = QSystemTrayIcon(app_icon(), self)
-        self.tray.setToolTip("DesktopToDo")
+        self.tray.setToolTip(APP_DISPLAY_NAME)
         menu = QMenu()
         actions = [
-            ("打开 DesktopToDo", self.show_from_tray),
+            (f"打开{APP_DISPLAY_NAME}", self.show_from_tray),
             ("新增 Todo", self.quick_add_from_tray),
             ("新增备忘录", self.quick_memo_from_tray),
             ("AI 周报", self.open_report),
@@ -514,7 +515,7 @@ class MainWindow(CardWindow):
         self.banner.setText(task.reminder_message())
         self.banner.show()
         QTimer.singleShot(6000, self.banner.hide)
-        self.tray.showMessage("DesktopToDo", task.reminder_message(), QSystemTrayIcon.MessageIcon.Information, 5000)
+        self.tray.showMessage(APP_DISPLAY_NAME, task.reminder_message(), QSystemTrayIcon.MessageIcon.Information, 5000)
         self.reload_all()
         self.play_reminder_animation(task)
 

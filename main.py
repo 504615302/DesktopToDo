@@ -22,8 +22,9 @@ from service.task_service import TaskService
 from ui.icons import app_icon
 from ui.main_window import MainWindow
 from ui.styles import build_stylesheet, resolve_theme
+from version import APP_DISPLAY_NAME, APP_ID
 
-APP_NAME = "DesktopToDo"
+APP_NAME = APP_ID
 INSTANCE_KEY = "DesktopTODO_SingleInstance"
 
 
@@ -71,7 +72,8 @@ def build_context(database: Database, settings_path_value) -> AppContext:
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName(APP_NAME)
+    app.setApplicationName(APP_ID)
+    app.setApplicationDisplayName(APP_DISPLAY_NAME)
     app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(app_icon())
 
@@ -79,7 +81,7 @@ def main() -> int:
         return 0
 
     if not QSystemTrayIcon.isSystemTrayAvailable():
-        QMessageBox.critical(None, APP_NAME, "当前系统不支持托盘图标，程序无法常驻运行。")
+        QMessageBox.critical(None, APP_DISPLAY_NAME, "当前系统不支持托盘图标，程序无法常驻运行。")
         return 1
 
     database = Database(db_path())

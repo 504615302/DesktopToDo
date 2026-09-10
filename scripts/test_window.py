@@ -27,7 +27,7 @@ def test_window_builds() -> None:
         theme = resolve_theme(ctx.settings.settings.theme)
         app.setStyleSheet(build_stylesheet(theme))
         window = MainWindow(ctx)
-        assert window.windowTitle() == "DesktopToDo"
+        assert window.windowTitle() == "桌面代办"
         window.task_service.add_task("窗口冒烟测试")
         window.reload_all()
         titles = [item.task.title for item in window.today_page._items + window.todo_page._items]
