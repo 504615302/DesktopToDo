@@ -1,11 +1,15 @@
 {
-  "always_on_top": true,
+  "always_on_top": false,
+  "lock_position": false,
   "auto_start": false,
-  "opacity": 0.9,
-  "theme": "system",
+  "opacity": 0.95,
+  "theme": "minimal",
   "window_x": null,
   "window_y": null,
-  "window_width": 360,
-  "window_height": 600,
-  "filter_mode": "incomplete"
+  "window_width": 400,
+  "window_height": 640,
+  "filter_mode": "incomplete",
+  "current_page": "today",
+  "default_ai_model": null,
+  "default_report_template": null
 }

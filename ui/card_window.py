@@ -7,7 +7,6 @@ from PySide6.QtWidgets import QWidget
 from ui.styles import Theme
 
 MARGIN = 10
-RADIUS = 16
 RESIZE_BORDER = 8
 
 
@@ -16,13 +15,14 @@ class CardWindow(QWidget):
         super().__init__(parent)
         self._theme = theme
         self._resizable = resizable
+        self._locked = False
         self._drag_pos: QPoint | None = None
         self._resize_dir = ""
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window | Qt.Tool)
         extra = MARGIN * 2
         if resizable:
-            self.setMinimumSize(300 + extra, 400 + extra)
+            self.setMinimumSize(360 + extra, 480 + extra)
         else:
             self.setMinimumSize(260 + extra, 160 + extra)
 
@@ -30,7 +30,12 @@ class CardWindow(QWidget):
         self._theme = theme
         self.update()
 
-    def apply_flags(self, always_on_top: bool) -> None:
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        if locked:
+            self.setCursor(Qt.ArrowCursor)
+
+    def apply_flags(self, always_on_top: bool = False) -> None:
         flags = Qt.FramelessWindowHint | Qt.Window | Qt.Tool
         if always_on_top:
             flags |= Qt.WindowStaysOnTopHint
@@ -48,10 +53,15 @@ class CardWindow(QWidget):
             shadow.setAlpha(alpha)
             painter.setPen(Qt.NoPen)
             painter.setBrush(shadow)
-            painter.drawRoundedRect(rect.adjusted(-i, -i + 1, i, i + 1), RADIUS + i, RADIUS + i)
+            painter.drawRoundedRect(
+                rect.adjusted(-i, -i + 1, i, i + 1),
+                self._theme.radius + i,
+                self._theme.radius + i,
+            )
 
+        radius = self._theme.radius
         path = QPainterPath()
-        path.addRoundedRect(rect, RADIUS, RADIUS)
+        path.addRoundedRect(rect, radius, radius)
         painter.fillPath(path, QColor(self._theme.bg))
         painter.setPen(QColor(self._theme.border))
         painter.setBrush(Qt.NoBrush)
@@ -61,7 +71,7 @@ class CardWindow(QWidget):
         return (MARGIN, MARGIN, MARGIN, MARGIN)
 
     def _hit_resize_dir(self, pos: QPoint) -> str:
-        if not self._resizable:
+        if not self._resizable or self._locked:
             return ""
         rect = self.rect().adjusted(MARGIN, MARGIN, -MARGIN, -MARGIN)
         x, y = pos.x(), pos.y()
@@ -125,7 +135,7 @@ class CardWindow(QWidget):
         super().mouseReleaseEvent(event)
 
     def _can_drag(self) -> bool:
-        return True
+        return not self._locked
 
     def _resize_to(self, global_pos: QPoint) -> None:
         if self._drag_pos is None:

@@ -3,33 +3,28 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+from database.common import dump_dt, parse_dt, row_value
 from model.task import Task, TaskStatus
 
 
-def _parse_dt(value: Optional[str]) -> Optional[datetime]:
-    if not value:
-        return None
-    return datetime.fromisoformat(value)
-
-
-def _dump_dt(value: Optional[datetime]) -> Optional[str]:
-    if value is None:
-        return None
-    return value.isoformat(timespec="seconds")
-
-
 def _row_to_task(row) -> Task:
+    reminder = row_value(row, "reminder_minutes")
+    include = row_value(row, "include_in_report", 1)
     return Task(
         id=row["id"],
         title=row["title"],
         description=row["description"] or "",
         status=row["status"] or 0,
-        priority=row["priority"] or 0,
-        due_time=_parse_dt(row["due_time"]),
-        completed_at=_parse_dt(row["completed_at"]),
+        priority=row["priority"] if row["priority"] is not None else 1,
+        due_time=parse_dt(row["due_time"]),
+        reminder_minutes=None if reminder is None else int(reminder),
+        reminded_at=parse_dt(row_value(row, "reminded_at")),
+        completed_at=parse_dt(row["completed_at"]),
         sort_order=row["sort_order"] or 0,
-        created_at=_parse_dt(row["created_at"]),
-        updated_at=_parse_dt(row["updated_at"]),
+        created_at=parse_dt(row["created_at"]),
+        updated_at=parse_dt(row["updated_at"]),
+        category=row_value(row, "category", "工作") or "工作",
+        include_in_report=bool(int(include) if include is not None else 1),
     )
 
 
@@ -60,19 +55,24 @@ class TaskRepository:
             """
             INSERT INTO task (
                 title, description, status, priority, due_time,
-                completed_at, sort_order, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                reminder_minutes, reminded_at, completed_at,
+                sort_order, created_at, updated_at, category, include_in_report
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task.title.strip(),
                 task.description.strip(),
                 task.status,
                 task.priority,
-                _dump_dt(task.due_time),
-                _dump_dt(task.completed_at),
+                dump_dt(task.due_time),
+                task.reminder_minutes,
+                dump_dt(task.reminded_at),
+                dump_dt(task.completed_at),
                 task.sort_order,
-                _dump_dt(task.created_at or now),
-                _dump_dt(now),
+                dump_dt(task.created_at or now),
+                dump_dt(now),
+                task.category or "工作",
+                1 if task.include_in_report else 0,
             ),
         )
         self._conn.commit()
@@ -88,7 +88,9 @@ class TaskRepository:
             """
             UPDATE task SET
                 title = ?, description = ?, status = ?, priority = ?,
-                due_time = ?, completed_at = ?, sort_order = ?, updated_at = ?
+                due_time = ?, reminder_minutes = ?, reminded_at = ?,
+                completed_at = ?, sort_order = ?, updated_at = ?,
+                category = ?, include_in_report = ?
             WHERE id = ?
             """,
             (
@@ -96,10 +98,14 @@ class TaskRepository:
                 task.description.strip(),
                 task.status,
                 task.priority,
-                _dump_dt(task.due_time),
-                _dump_dt(task.completed_at),
+                dump_dt(task.due_time),
+                task.reminder_minutes,
+                dump_dt(task.reminded_at),
+                dump_dt(task.completed_at),
                 task.sort_order,
-                _dump_dt(now),
+                dump_dt(now),
+                task.category or "工作",
+                1 if task.include_in_report else 0,
                 task.id,
             ),
         )

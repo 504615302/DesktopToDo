@@ -8,7 +8,14 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 from app_paths import db_path, settings_path
 from database.db import Database
+from database.memo_repository import MemoRepository
+from database.report_repository import ReportRepository
 from database.task_repository import TaskRepository
+from service.ai_service import AIService
+from service.app_context import AppContext
+from service.credential_service import CredentialService
+from service.memo_service import MemoService
+from service.report_service import ReportService
 from service.settings_service import SettingsService
 from service.startup_service import StartupService
 from service.task_service import TaskService
@@ -16,7 +23,7 @@ from ui.icons import app_icon
 from ui.main_window import MainWindow
 from ui.styles import build_stylesheet, resolve_theme
 
-APP_NAME = "Desktop TODO"
+APP_NAME = "DesktopToDo"
 INSTANCE_KEY = "DesktopTODO_SingleInstance"
 
 
@@ -47,6 +54,21 @@ def _on_second_instance(server: QLocalServer, window: MainWindow) -> None:
     QTimer.singleShot(50, window.show_from_tray)
 
 
+def build_context(database: Database, settings_path_value) -> AppContext:
+    connection = database.connection()
+    credentials = CredentialService()
+    ai = AIService(credentials)
+    return AppContext(
+        tasks=TaskService(TaskRepository(connection)),
+        memos=MemoService(MemoRepository(connection)),
+        reports=ReportService(ReportRepository(connection), ai, credentials),
+        ai=ai,
+        credentials=credentials,
+        settings=SettingsService(settings_path_value),
+        startup=StartupService(),
+    )
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
@@ -61,19 +83,14 @@ def main() -> int:
         return 1
 
     database = Database(db_path())
-    settings_service = SettingsService(settings_path())
-    startup_service = StartupService()
-    if settings_service.settings.auto_start != startup_service.is_enabled():
-        startup_service.set_enabled(settings_service.settings.auto_start)
+    ctx = build_context(database, settings_path())
+    if ctx.settings.settings.auto_start != ctx.startup.is_enabled():
+        ctx.startup.set_enabled(ctx.settings.settings.auto_start)
 
-    theme = resolve_theme(settings_service.settings.theme)
+    theme = resolve_theme(ctx.settings.settings.theme)
     app.setStyleSheet(build_stylesheet(theme))
 
-    window = MainWindow(
-        TaskService(TaskRepository(database.connection())),
-        settings_service,
-        startup_service,
-    )
+    window = MainWindow(ctx)
     _listen_for_activation(window)
 
     code = app.exec()

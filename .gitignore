@@ -11,5 +11,6 @@ data/*.db-journal
 data/*.db-wal
 data/*.db-shm
 build/
-dist/
+dist/*
+!dist/DesktopTODO.exe
 *.spec.bak

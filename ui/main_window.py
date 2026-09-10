@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import (
+    QAbstractAnimation,
+    QEasingCurve,
+    QPoint,
+    QPropertyAnimation,
+    QTimer,
+    Qt,
+)
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
@@ -11,8 +18,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMenu,
     QMessageBox,
-    QPushButton,
-    QScrollArea,
+    QStackedWidget,
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
@@ -20,52 +26,55 @@ from PySide6.QtWidgets import (
 
 from model.settings import AppSettings
 from model.task import Priority, Task
-from service.settings_service import SettingsService
-from service.startup_service import StartupService
-from service.task_service import TaskService
+from service.app_context import AppContext
+from service.hotkey_service import HotkeyService
+from service.reminder_service import ReminderService
+from ui.ai_model_dialog import AIModelListDialog
 from ui.card_window import MARGIN, CardWindow
+from ui.dialogs.quick_input_dialog import QuickInputDialog
+from ui.dialogs.work_result_dialog import WorkResultDialog
+from ui.icons import app_icon, stroke_icon
+from ui.memo_page import MemoPage
+from ui.nav_bar import NavBar
+from ui.page_utils import style_quick_add
+from ui.report_page import ReportPage
 from ui.settings_dialog import SettingsDialog
 from ui.styles import Theme, build_stylesheet, resolve_theme
 from ui.task_dialog import TaskDialog
-from ui.task_item import TaskItem
+from ui.template_dialog import TemplateListDialog
 from ui.title_bar import TitleBar
-from ui.icons import app_icon
-
-
-FILTERS = [
-    ("incomplete", "未完成"),
-    ("all", "全部"),
-    ("completed", "已完成"),
-]
+from ui.today_page import TodayPage
+from ui.todo_page import TodoPage
 
 
 class MainWindow(CardWindow):
-    def __init__(
-        self,
-        task_service: TaskService,
-        settings_service: SettingsService,
-        startup_service: StartupService,
-    ):
-        self.task_service = task_service
-        self.settings_service = settings_service
-        self.startup_service = startup_service
-        self.settings: AppSettings = settings_service.settings
+    def __init__(self, ctx: AppContext):
+        self.ctx = ctx
+        self.task_service = ctx.tasks
+        self.settings_service = ctx.settings
+        self.startup_service = ctx.startup
+        self.settings: AppSettings = ctx.settings.settings
         self.theme: Theme = resolve_theme(self.settings.theme)
         self._really_quit = False
-        self._items: list[TaskItem] = []
+        self._alert_anim: QPropertyAnimation | None = None
+        self._alert_origin: QPoint | None = None
+        self._hotkeys: HotkeyService | None = None
         super().__init__(self.theme, resizable=True)
-        self.setWindowTitle("Desktop TODO")
+        self.setWindowTitle("DesktopToDo")
         self.setWindowIcon(app_icon())
-        self._build_ui()
-        self._setup_tray()
-        self._setup_shortcuts()
-        self.apply_appearance(show=False, reload=False)
-        self._restore_geometry()
-        self.reload_tasks()
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(400)
         self._save_timer.timeout.connect(self._persist_geometry)
+        self._build_ui()
+        self._setup_tray()
+        self._setup_shortcuts()
+        self._setup_reminders()
+        self.apply_appearance(show=False, reload=False)
+        self._restore_geometry()
+        self.set_page(self.settings.current_page or "today")
+        self.reload_all()
+        QTimer.singleShot(400, self._install_hotkeys)
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -74,65 +83,82 @@ class MainWindow(CardWindow):
 
         self.title_bar = TitleBar(self.theme)
         self.title_bar.set_date(datetime.now().strftime("%m-%d"))
+        self.title_bar.set_locked(self.settings.lock_position)
         self.title_bar.set_pinned(self.settings.always_on_top)
         self.title_bar.settings_clicked.connect(self.open_settings)
+        self.title_bar.lock_clicked.connect(self.toggle_lock)
         self.title_bar.pin_clicked.connect(self.toggle_pin)
+        self.title_bar.theme_selected.connect(self.set_theme_mode)
         self.title_bar.minimize_clicked.connect(self.hide)
         self.title_bar.close_clicked.connect(self.hide)
         root.addWidget(self.title_bar)
 
-        self.filter_bar = QWidget()
-        filter_layout = QHBoxLayout(self.filter_bar)
-        filter_layout.setContentsMargins(0, 0, 0, 0)
-        filter_layout.setSpacing(6)
-        self._filter_buttons: dict[str, QPushButton] = {}
-        for key, label in FILTERS:
-            button = QPushButton(label)
-            button.setCursor(Qt.PointingHandCursor)
-            button.setCheckable(True)
-            button.clicked.connect(lambda _checked=False, value=key: self.set_filter(value))
-            filter_layout.addWidget(button)
-            self._filter_buttons[key] = button
-        filter_layout.addStretch()
-        root.addWidget(self.filter_bar)
+        self.banner = QLabel()
+        self.banner.setWordWrap(True)
+        self.banner.setAlignment(Qt.AlignCenter)
+        self.banner.hide()
+        root.addWidget(self.banner)
 
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.scroll.setFrameShape(QScrollArea.NoFrame)
-        self.scroll.viewport().setAutoFillBackground(False)
-        self.list_host = QWidget()
-        self.list_layout = QVBoxLayout(self.list_host)
-        self.list_layout.setContentsMargins(0, 0, 4, 0)
-        self.list_layout.setSpacing(2)
-        self.list_layout.addStretch()
-        self.scroll.setWidget(self.list_host)
-        root.addWidget(self.scroll, 1)
+        self.nav = NavBar(self.theme)
+        self.nav.page_changed.connect(self.set_page)
+        root.addWidget(self.nav)
 
+        self.stack = QStackedWidget()
+        self.today_page = TodayPage(self.theme)
+        self.todo_page = TodoPage(self.theme, self.settings.filter_mode)
+        self.memo_page = MemoPage(self.theme, self.ctx.memos)
+        self.report_page = ReportPage(self.theme, self.ctx)
+        for page in (self.today_page, self.todo_page):
+            page.task_toggled.connect(self._on_toggled)
+            page.edit_requested.connect(self.edit_task)
+            page.delete_requested.connect(self.delete_task)
+            page.report_toggled.connect(self.toggle_task_report)
+            page.result_requested.connect(self.record_result)
+        self.today_page.memo_open_requested.connect(self.open_memo)
+        self.todo_page.filter_changed.connect(self._on_todo_filter)
+        self.memo_page.changed.connect(self._on_memo_changed)
+        self.stack.addWidget(self.today_page)
+        self.stack.addWidget(self.todo_page)
+        self.stack.addWidget(self.memo_page)
+        self.stack.addWidget(self.report_page)
+        root.addWidget(self.stack, 1)
+
+        add_row = QWidget()
+        add_layout = QHBoxLayout(add_row)
+        add_layout.setContentsMargins(10, 0, 10, 0)
+        add_layout.setSpacing(8)
+        self._plus_icon = QLabel()
+        self._plus_icon.setFixedSize(18, 18)
         self.quick_add = QLineEdit()
-        self.quick_add.setPlaceholderText("＋  添加任务，按 Enter 保存")
-        self.quick_add.setFixedHeight(38)
+        self.quick_add.setPlaceholderText(self.theme.placeholder)
+        self.quick_add.setFixedHeight(40)
         self.quick_add.returnPressed.connect(self._on_quick_add)
-        root.addWidget(self.quick_add)
-        self._refresh_filter_buttons()
+        add_layout.addWidget(self._plus_icon)
+        add_layout.addWidget(self.quick_add, 1)
+        add_row.setObjectName("quickAdd")
+        self.quick_add_row = add_row
+        root.addWidget(add_row)
+        self._style_quick_add()
+        self._style_banner()
 
     def _setup_tray(self) -> None:
         self.tray = QSystemTrayIcon(app_icon(), self)
-        self.tray.setToolTip("Desktop TODO")
+        self.tray.setToolTip("DesktopToDo")
         menu = QMenu()
-        open_action = QAction("打开 TODO", self)
-        add_action = QAction("添加任务", self)
-        today_action = QAction("查看今日任务", self)
-        settings_action = QAction("设置", self)
-        quit_action = QAction("退出", self)
-        open_action.triggered.connect(self.show_from_tray)
-        add_action.triggered.connect(self.quick_add_from_tray)
-        today_action.triggered.connect(self.show_today)
-        settings_action.triggered.connect(self.open_settings)
-        quit_action.triggered.connect(self.quit_app)
-        for action in (open_action, add_action, today_action, settings_action):
+        actions = [
+            ("打开 DesktopToDo", self.show_from_tray),
+            ("新增 Todo", self.quick_add_from_tray),
+            ("新增备忘录", self.quick_memo_from_tray),
+            ("AI 周报", self.open_report),
+            ("设置", self.open_settings),
+        ]
+        for text, slot in actions:
+            action = QAction(text, self)
+            action.triggered.connect(slot)
             menu.addAction(action)
         menu.addSeparator()
+        quit_action = QAction("退出", self)
+        quit_action.triggered.connect(self.quit_app)
         menu.addAction(quit_action)
         self.tray.setContextMenu(menu)
         self.tray.activated.connect(self._on_tray_activated)
@@ -141,151 +167,276 @@ class MainWindow(CardWindow):
     def _setup_shortcuts(self) -> None:
         QShortcut(QKeySequence("Ctrl+N"), self, activated=self.quick_add.setFocus)
         QShortcut(QKeySequence("Esc"), self, activated=self.quick_add.clear)
+        QShortcut(QKeySequence("Ctrl+Alt+T"), self, activated=self.quick_add_from_tray)
+        QShortcut(QKeySequence("Ctrl+Alt+N"), self, activated=self.quick_memo_from_tray)
+        QShortcut(QKeySequence("Ctrl+Alt+W"), self, activated=self.open_report)
+
+    def _install_hotkeys(self) -> None:
+        hwnd = int(self.winId())
+        self._hotkeys = HotkeyService(hwnd, self)
+        self._hotkeys.activated.connect(self._on_hotkey)
+        self._hotkeys.install(QApplication.instance())
+
+    def _on_hotkey(self, action: str) -> None:
+        if action == "todo":
+            self.quick_add_from_tray()
+        elif action == "memo":
+            self.quick_memo_from_tray()
+        elif action == "report":
+            self.open_report()
+
+    def _setup_reminders(self) -> None:
+        self.reminder_service = ReminderService(self.task_service, self)
+        self.ctx.reminders = self.reminder_service
+        self.reminder_service.triggered.connect(self.on_reminder)
 
     def apply_appearance(self, show: bool = True, reload: bool = True) -> None:
+        self.settings = self.settings_service.settings
         self.theme = resolve_theme(self.settings.theme)
         self.set_theme(self.theme)
+        self.set_locked(self.settings.lock_position)
         QApplication.instance().setStyleSheet(build_stylesheet(self.theme))
         self.setWindowOpacity(self.settings.opacity)
         self.title_bar.apply_theme(self.theme)
+        self.title_bar.set_locked(self.settings.lock_position)
         self.title_bar.set_pinned(self.settings.always_on_top)
-        self._refresh_filter_buttons()
-        flags = self.windowFlags()
-        want_top = Qt.WindowStaysOnTopHint
-        has_top = bool(flags & want_top)
-        if has_top != self.settings.always_on_top:
-            self.apply_flags(self.settings.always_on_top)
-        elif show:
+        self.nav.apply_theme(self.theme)
+        self.today_page.apply_theme(self.theme)
+        self.todo_page.apply_theme(self.theme)
+        self.memo_page.apply_theme(self.theme)
+        self.report_page.apply_theme(self.theme)
+        self._style_quick_add()
+        self._style_banner()
+        self._sync_quick_add_mode()
+        self.apply_flags(self.settings.always_on_top)
+        if show:
             self.show()
         if reload:
-            self.reload_tasks()
+            self.reload_all()
 
-    def _refresh_filter_buttons(self) -> None:
-        for key, button in self._filter_buttons.items():
-            active = key == self.settings.filter_mode
-            bg = self.theme.chip_active if active else self.theme.surface
-            color = self.theme.accent if active else self.theme.text_secondary
-            button.setChecked(active)
-            button.setStyleSheet(
-                f"""
-                QPushButton {{
-                    background: {bg};
-                    color: {color};
-                    border: 1px solid {self.theme.border};
-                    border-radius: 12px;
-                    padding: 4px 10px;
-                    font-size: 12px;
-                }}
-                """
-            )
+    def _style_quick_add(self) -> None:
+        self._plus_icon.setPixmap(stroke_icon("plus", self.theme.accent, 16).pixmap(16, 16))
+        style_quick_add(self.quick_add_row, self.theme)
 
-    def set_filter(self, mode: str) -> None:
-        self.settings_service.update(filter_mode=mode)
+    def _style_banner(self) -> None:
+        self.banner.setStyleSheet(
+            f"""
+            QLabel {{
+                background: {self.theme.banner_bg};
+                color: {self.theme.banner_text};
+                border-radius: {self.theme.chip_radius}px;
+                padding: 8px 10px;
+                font-weight: 600;
+            }}
+            """
+        )
+
+    def set_page(self, key: str) -> None:
+        mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3}
+        index = mapping.get(key, 0)
+        key = list(mapping.keys())[index]
+        self.stack.setCurrentIndex(index)
+        self.nav.set_page(key)
+        self.settings_service.update(current_page=key)
         self.settings = self.settings_service.settings
-        self._refresh_filter_buttons()
-        self.reload_tasks()
+        self._sync_quick_add_mode()
+        if key == "report":
+            self.report_page.reload_options()
+
+    def _sync_quick_add_mode(self) -> None:
+        page = self.settings.current_page
+        self.quick_add_row.setVisible(page in {"today", "todo"})
+        self.quick_add.setPlaceholderText(self.theme.placeholder)
+
+    def toggle_lock(self) -> None:
+        self.settings_service.update(lock_position=not self.settings.lock_position)
+        self.settings = self.settings_service.settings
+        self.apply_appearance(reload=False)
 
     def toggle_pin(self) -> None:
         self.settings_service.update(always_on_top=not self.settings.always_on_top)
         self.settings = self.settings_service.settings
         self.apply_appearance(reload=False)
 
-    def reload_tasks(self) -> None:
+    def set_theme_mode(self, name: str) -> None:
+        self.settings_service.update(theme=name)
+        self.settings = self.settings_service.settings
+        self.apply_appearance()
+
+    def reload_all(self) -> None:
         tasks = self.task_service.list_tasks()
-        mode = self.settings.filter_mode
-        pending = [task for task in tasks if not task.is_completed]
-        completed = [task for task in tasks if task.is_completed]
+        memos = self.ctx.memos.list_memos()
+        self.today_page.reload(tasks, memos)
+        self.todo_page.reload(tasks)
+        self.memo_page.reload()
+        self.report_page.reload_options()
 
-        visible_pending = pending if mode in {"incomplete", "all"} else []
-        visible_completed = completed if mode in {"completed", "all"} else []
-        if mode == "incomplete":
-            visible_completed = []
+    def _on_todo_filter(self, mode: str) -> None:
+        self.settings_service.update(filter_mode=mode)
+        self.settings = self.settings_service.settings
+        self.todo_page.reload(self.task_service.list_tasks())
 
-        while self.list_layout.count():
-            item = self.list_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-        self._items.clear()
-
-        if not visible_pending and not visible_completed:
-            empty = QLabel("暂无待办，在下方输入后按 Enter 添加")
-            empty.setAlignment(Qt.AlignCenter)
-            empty.setStyleSheet(f"color: {self.theme.text_muted}; padding: 32px 8px;")
-            empty.setWordWrap(True)
-            self.list_layout.addWidget(empty)
-            self.list_layout.addStretch()
-            return
-
-        if visible_pending:
-            self.list_layout.addWidget(self._section_label(f"未完成  {len(visible_pending)}"))
-            for task in visible_pending:
-                self._add_item(task)
-        if visible_completed:
-            self.list_layout.addWidget(self._section_label(f"已完成  {len(visible_completed)}"))
-            for task in visible_completed:
-                self._add_item(task)
-        self.list_layout.addStretch()
-
-    def _section_label(self, text: str) -> QLabel:
-        label = QLabel(text)
-        label.setStyleSheet(
-            f"color: {self.theme.text_muted}; font-size: 12px; font-weight: 600; padding: 8px 8px 4px 8px;"
-        )
-        return label
-
-    def _add_item(self, task: Task) -> None:
-        item = TaskItem(task, self.theme)
-        item.toggled.connect(self._on_toggled)
-        item.edit_requested.connect(self.edit_task)
-        item.delete_requested.connect(self.delete_task)
-        self.list_layout.addWidget(item)
-        self._items.append(item)
+    def _on_memo_changed(self) -> None:
+        self.today_page.reload(self.task_service.list_tasks(), self.ctx.memos.list_memos())
+        self.report_page.reload_options()
 
     def _on_quick_add(self) -> None:
-        title = self.quick_add.text().strip()
-        if not title:
+        text = self.quick_add.text().strip()
+        if not text:
             return
-        self.task_service.add_task(title)
+        if self.settings.current_page == "memo":
+            self.ctx.memos.add_memo(text)
+            self.memo_page.reload()
+        else:
+            self.task_service.add_task(text)
         self.quick_add.clear()
-        self.reload_tasks()
+        self.reload_all()
 
     def _on_toggled(self, task: Task, checked: bool) -> None:
         self.task_service.set_completed(task, checked)
-        self.reload_tasks()
+        self.reload_all()
 
     def edit_task(self, task: Task) -> None:
         dialog = TaskDialog(self.theme, task, self)
         if dialog.exec() != TaskDialog.DialogCode.Accepted:
             return
-        title, description, priority = dialog.result_values()
-        if not title:
+        values = dialog.result_values()
+        if not values["title"]:
             QMessageBox.information(self, "提示", "任务名称不能为空")
             return
-        task.title = title
-        task.description = description
-        task.priority = priority
+        task.title = values["title"]
+        task.description = values["description"]
+        task.priority = values["priority"]
+        task.due_time = values["due_time"]
+        task.reminder_minutes = values["reminder_minutes"]
+        task.category = values["category"]
+        task.include_in_report = values["include_in_report"]
+        task.reminded_at = None
         self.task_service.update_task(task)
-        self.reload_tasks()
+        self.reload_all()
 
     def delete_task(self, task: Task) -> None:
-        if task.priority_enum != Priority.NORMAL:
+        if task.priority_enum in {Priority.HIGH, Priority.URGENT}:
             result = QMessageBox.question(self, "删除任务", "确认删除该任务？")
             if result != QMessageBox.StandardButton.Yes:
                 return
         self.task_service.delete_task(task.id)
-        self.reload_tasks()
+        self.reload_all()
+
+    def toggle_task_report(self, task: Task) -> None:
+        task.include_in_report = not task.include_in_report
+        self.task_service.update_task(task)
+        self.reload_all()
+
+    def record_result(self, task: Task) -> None:
+        dialog = WorkResultDialog(self.theme, task, self)
+        if dialog.exec() != WorkResultDialog.DialogCode.Accepted:
+            return
+        content, include = dialog.result_values()
+        if not content:
+            return
+        self.ctx.memos.add_memo(
+            content,
+            title=f"{task.title} · 工作结果",
+            include_in_report=include,
+            task_id=task.id,
+        )
+        if include and not task.include_in_report:
+            task.include_in_report = True
+            self.task_service.update_task(task)
+        self.reload_all()
+
+    def open_memo(self, memo) -> None:
+        self.set_page("memo")
+        self.memo_page.open_memo(memo)
+        self.show_from_tray()
 
     def open_settings(self) -> None:
         self.show_from_tray()
+        snapshot = self.settings.to_dict()
         dialog = SettingsDialog(self.theme, self.settings, self)
-        if dialog.exec() != SettingsDialog.DialogCode.Accepted:
+        dialog.opacity_previewed.connect(self.setWindowOpacity)
+        dialog.theme_previewed.connect(lambda name: self._preview_theme(name))
+        dialog.ai_btn.clicked.connect(lambda: self._open_models(dialog))
+        dialog.template_btn.clicked.connect(lambda: self._open_templates(dialog))
+        accepted = dialog.exec() == SettingsDialog.DialogCode.Accepted
+        if not accepted:
+            self.settings = AppSettings.from_dict(snapshot)
+            self.settings_service.save(self.settings)
+            self.apply_appearance()
             return
         values = dialog.result_values()
         self.startup_service.set_enabled(values["auto_start"])
         self.settings_service.update(**values)
         self.settings = self.settings_service.settings
         self.apply_appearance()
+        self.report_page.reload_options()
+
+    def _open_models(self, parent) -> None:
+        AIModelListDialog(self.theme, self.ctx.reports, parent).exec()
+        self.report_page.reload_options()
+
+    def _open_templates(self, parent) -> None:
+        TemplateListDialog(self.theme, self.ctx.reports, parent).exec()
+        self.report_page.reload_options()
+
+    def _preview_theme(self, name: str) -> None:
+        self.settings.theme = name
+        self.apply_appearance()
+
+    def on_reminder(self, task: Task) -> None:
+        self.show_from_tray()
+        self.set_page("todo")
+        self.banner.setText(task.reminder_message())
+        self.banner.show()
+        QTimer.singleShot(6000, self.banner.hide)
+        self.tray.showMessage("DesktopToDo", task.reminder_message(), QSystemTrayIcon.MessageIcon.Information, 5000)
+        self.reload_all()
+        self.play_reminder_animation(task)
+
+    def play_reminder_animation(self, task: Task) -> None:
+        if task.id is not None:
+            self.today_page.flash_task(task.id)
+            self.todo_page.flash_task(task.id)
+        origin = self.pos()
+        self._alert_origin = origin
+        anim = QPropertyAnimation(self, b"pos", self)
+        anim.setDuration(720)
+        anim.setEasingCurve(QEasingCurve.Type.OutQuad)
+        if self.theme.name == "cute":
+            anim.setKeyValueAt(0.0, origin)
+            anim.setKeyValueAt(0.22, origin + QPoint(0, -22))
+            anim.setKeyValueAt(0.42, origin)
+            anim.setKeyValueAt(0.62, origin + QPoint(0, -12))
+            anim.setKeyValueAt(1.0, origin)
+        elif self.theme.name == "business":
+            anim.setKeyValueAt(0.0, origin)
+            anim.setKeyValueAt(0.12, origin + QPoint(14, 0))
+            anim.setKeyValueAt(0.28, origin + QPoint(-12, 0))
+            anim.setKeyValueAt(0.44, origin + QPoint(10, 0))
+            anim.setKeyValueAt(0.62, origin + QPoint(-6, 0))
+            anim.setKeyValueAt(1.0, origin)
+        else:
+            anim.setKeyValueAt(0.0, origin)
+            anim.setKeyValueAt(0.2, origin + QPoint(0, -8))
+            anim.setKeyValueAt(0.45, origin)
+            anim.setKeyValueAt(0.7, origin + QPoint(0, -4))
+            anim.setKeyValueAt(1.0, origin)
+        anim.finished.connect(lambda: self.move(origin))
+        self._alert_anim = anim
+        anim.start()
+        self._pulse_opacity()
+
+    def _pulse_opacity(self) -> None:
+        current = self.windowOpacity()
+        peak = 1.0 if current < 0.95 else max(0.35, current - 0.25)
+        pulse = QPropertyAnimation(self, b"windowOpacity", self)
+        pulse.setDuration(640)
+        pulse.setKeyValueAt(0.0, current)
+        pulse.setKeyValueAt(0.45, peak)
+        pulse.setKeyValueAt(1.0, current)
+        pulse.start()
+        self._opacity_anim = pulse
 
     def show_from_tray(self) -> None:
         self.show()
@@ -293,13 +444,30 @@ class MainWindow(CardWindow):
         self.activateWindow()
 
     def show_today(self) -> None:
-        self.set_filter("incomplete")
+        self.set_page("today")
         self.show_from_tray()
 
     def quick_add_from_tray(self) -> None:
+        self.set_page("todo")
         self.show_from_tray()
         self.quick_add.setFocus()
         self.quick_add.selectAll()
+
+    def quick_memo_from_tray(self) -> None:
+        self.show_from_tray()
+        dialog = QuickInputDialog(self.theme, "快速记录", "输入备忘内容", self)
+        if dialog.exec() != QuickInputDialog.DialogCode.Accepted:
+            return
+        text = dialog.text()
+        if not text:
+            return
+        self.ctx.memos.add_memo(text)
+        self.set_page("memo")
+        self.reload_all()
+
+    def open_report(self) -> None:
+        self.set_page("report")
+        self.show_from_tray()
 
     def _on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -308,12 +476,16 @@ class MainWindow(CardWindow):
     def quit_app(self) -> None:
         self._really_quit = True
         self._persist_geometry()
+        if self._hotkeys:
+            self._hotkeys.uninstall()
         self.tray.hide()
         QApplication.quit()
 
     def closeEvent(self, event) -> None:
         if self._really_quit:
             self._persist_geometry()
+            if self._hotkeys:
+                self._hotkeys.uninstall()
             event.accept()
             return
         event.ignore()
@@ -321,18 +493,22 @@ class MainWindow(CardWindow):
 
     def moveEvent(self, event) -> None:
         super().moveEvent(event)
-        self._save_timer.start()
+        if self._alert_anim and self._alert_anim.state() == QAbstractAnimation.State.Running:
+            return
+        if not self.settings.lock_position:
+            self._save_timer.start()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._save_timer.start()
+        if not self.settings.lock_position:
+            self._save_timer.start()
 
     def _persist_geometry(self) -> None:
         geo = self.geometry()
         self.settings_service.update(
             window_x=geo.x(),
             window_y=geo.y(),
-            window_width=max(300, geo.width() - MARGIN * 2),
+            window_width=max(360, geo.width() - MARGIN * 2),
             window_height=max(400, geo.height() - MARGIN * 2),
         )
         self.settings = self.settings_service.settings
