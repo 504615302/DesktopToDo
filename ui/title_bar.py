@@ -7,6 +7,9 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QSizePolicy, QWidget
 from ui.datetime_picker import IconButton
 from ui.styles import THEME_CHOICES, Theme
 
+TITLE_BTN = 40
+TITLE_ICON = 22
+
 
 class TitleBar(QWidget):
     settings_clicked = Signal()
@@ -24,17 +27,17 @@ class TitleBar(QWidget):
         self._pinned = False
         self._compact = False
         self._drag_offset: QPoint | None = None
-        self.setFixedHeight(44)
+        self.setFixedHeight(48)
         self._title = QLabel(theme.title)
         self._title.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {theme.text};")
 
-        self.lock_btn = IconButton("unlock", theme.text_secondary, "锁定位置")
-        self.pin_btn = IconButton("pin", theme.text_secondary, "窗口置顶")
-        self.theme_btn = IconButton("theme", theme.text_secondary, "切换主题")
-        self.settings_btn = IconButton("settings", theme.text_secondary, "设置")
-        self.min_btn = IconButton("minimize", theme.text_secondary, "最小化")
-        self.compact_btn = IconButton("collapse", theme.text_secondary, "折叠为问答")
-        self.close_btn = IconButton("close", theme.text_secondary, "关闭到托盘")
+        self.lock_btn = IconButton("unlock", theme.text_secondary, "锁定位置", TITLE_BTN, TITLE_ICON)
+        self.pin_btn = IconButton("pin", theme.text_secondary, "窗口置顶", TITLE_BTN, TITLE_ICON)
+        self.theme_btn = IconButton("theme", theme.text_secondary, "切换主题", TITLE_BTN, TITLE_ICON)
+        self.settings_btn = IconButton("settings", theme.text_secondary, "设置", TITLE_BTN, TITLE_ICON)
+        self.min_btn = IconButton("minimize", theme.text_secondary, "最小化", TITLE_BTN, TITLE_ICON)
+        self.compact_btn = IconButton("collapse", theme.text_secondary, "折叠为问答", TITLE_BTN, TITLE_ICON)
+        self.close_btn = IconButton("close", theme.text_secondary, "关闭到托盘", TITLE_BTN, TITLE_ICON)
 
         self.lock_btn.clicked.connect(self.lock_clicked.emit)
         self.pin_btn.clicked.connect(self.pin_clicked.emit)
@@ -45,7 +48,7 @@ class TitleBar(QWidget):
         self.close_btn.clicked.connect(self.close_clicked.emit)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 2, 0, 0)
+        layout.setContentsMargins(4, 4, 2, 4)
         layout.setSpacing(2)
         layout.addWidget(self._title)
         layout.addStretch()

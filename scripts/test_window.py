@@ -34,6 +34,7 @@ def test_window_builds() -> None:
         assert "窗口冒烟测试" in titles
         assert window.stack.count() == 6
         window.set_page("tools")
+        assert not window.nav._page_icon("nav_tools").isNull()
         assert window.tools_page._current == "json"
         assert window.tools_page.stack.count() == 7
         window.tools_page._set_tool("alias")
@@ -53,6 +54,14 @@ def test_window_builds() -> None:
         assert parse_hotkey("T") is None
         assert normalize_hotkey("ctrl+alt+n", "Ctrl+Alt+N").lower().endswith("n")
         assert window._hotkey_bindings()["todo"]
+        assert window._hotkey_bindings()["hide"] == "Ctrl+Alt+H"
+        window.show()
+        window.toggle_hidden()
+        app.processEvents()
+        assert window.isVisible() is False
+        window.toggle_hidden()
+        app.processEvents()
+        assert window.isVisible() is True
         dialog = window.chat_page
         dialog._refresh_model_button()
         assert "选择模型" in dialog.model_btn.text() or "·" in dialog.model_btn.text()

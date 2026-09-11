@@ -29,6 +29,7 @@ class AppSettings:
     hotkey_memo: str = "Ctrl+Alt+N"
     hotkey_report: str = "Ctrl+Alt+W"
     hotkey_chat: str = "Ctrl+Alt+Q"
+    hotkey_hide: str = "Ctrl+Alt+H"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AppSettings":
@@ -51,6 +52,7 @@ class AppSettings:
         settings.hotkey_memo = str(settings.hotkey_memo or "Ctrl+Alt+N")
         settings.hotkey_report = str(settings.hotkey_report or "Ctrl+Alt+W")
         settings.hotkey_chat = str(settings.hotkey_chat or "Ctrl+Alt+Q")
+        settings.hotkey_hide = str(settings.hotkey_hide or "Ctrl+Alt+H")
         return settings
 
     def to_dict(self) -> dict[str, Any]:

@@ -19,6 +19,7 @@ DEFAULT_HOTKEYS = {
     "memo": "Ctrl+Alt+N",
     "report": "Ctrl+Alt+W",
     "chat": "Ctrl+Alt+Q",
+    "hide": "Ctrl+Alt+H",
 }
 
 HOTKEY_IDS = {
@@ -26,6 +27,7 @@ HOTKEY_IDS = {
     "memo": 2,
     "report": 3,
     "chat": 4,
+    "hide": 5,
 }
 
 _VK_EXTRA = {

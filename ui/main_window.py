@@ -196,6 +196,7 @@ class MainWindow(CardWindow):
             "memo": normalize_hotkey(settings.hotkey_memo, DEFAULT_HOTKEYS["memo"]),
             "report": normalize_hotkey(settings.hotkey_report, DEFAULT_HOTKEYS["report"]),
             "chat": normalize_hotkey(settings.hotkey_chat, DEFAULT_HOTKEYS["chat"]),
+            "hide": normalize_hotkey(settings.hotkey_hide, DEFAULT_HOTKEYS["hide"]),
         }
 
     def _clear_shortcuts(self, items: list[QShortcut]) -> None:
@@ -224,6 +225,7 @@ class MainWindow(CardWindow):
             "memo": self.quick_memo_from_tray,
             "report": self.open_report,
             "chat": self.open_chat,
+            "hide": self.toggle_hidden,
         }
         for action, sequence in self._hotkey_bindings().items():
             if action in skip:
@@ -252,6 +254,8 @@ class MainWindow(CardWindow):
             self.open_report()
         elif action == "chat":
             self.open_chat()
+        elif action == "hide":
+            self.toggle_hidden()
 
     def _setup_reminders(self) -> None:
         self.reminder_service = ReminderService(self.task_service, self)
@@ -627,6 +631,12 @@ class MainWindow(CardWindow):
         self.show()
         self.raise_()
         self.activateWindow()
+
+    def toggle_hidden(self) -> None:
+        if self.isVisible():
+            self.hide()
+            return
+        self.show_from_tray()
 
     def show_today(self) -> None:
         self.set_page("today")

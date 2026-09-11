@@ -130,11 +130,13 @@ class SettingsDialog(QDialog):
         self.hotkey_memo = HotkeyEdit(settings.hotkey_memo)
         self.hotkey_report = HotkeyEdit(settings.hotkey_report)
         self.hotkey_chat = HotkeyEdit(settings.hotkey_chat)
+        self.hotkey_hide = HotkeyEdit(settings.hotkey_hide)
         for caption, editor in (
             ("新增 Todo", self.hotkey_todo),
             ("新增备忘", self.hotkey_memo),
             ("AI 周报", self.hotkey_report),
             ("AI 问答", self.hotkey_chat),
+            ("显示/隐藏", self.hotkey_hide),
         ):
             row = QHBoxLayout()
             name = QLabel(caption)
@@ -233,4 +235,5 @@ class SettingsDialog(QDialog):
             "hotkey_memo": self.hotkey_memo.sequence(),
             "hotkey_report": self.hotkey_report.sequence(),
             "hotkey_chat": self.hotkey_chat.sequence(),
+            "hotkey_hide": self.hotkey_hide.sequence(),
         }

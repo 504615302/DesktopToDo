@@ -61,13 +61,21 @@ def test_task_and_settings_roundtrip() -> None:
         assert second.description == ""
 
         settings = SettingsService(tmp / "settings.json")
-        settings.update(always_on_top=False, opacity=0.0, theme="cute", lock_position=True, hotkey_todo="Ctrl+Shift+T")
+        settings.update(
+            always_on_top=False,
+            opacity=0.0,
+            theme="cute",
+            lock_position=True,
+            hotkey_todo="Ctrl+Shift+T",
+            hotkey_hide="Ctrl+Alt+H",
+        )
         again = SettingsService(tmp / "settings.json")
         assert again.settings.always_on_top is False
         assert again.settings.opacity == 0.0
         assert again.settings.theme == "cute"
         assert again.settings.lock_position is True
         assert again.settings.hotkey_todo == "Ctrl+Shift+T"
+        assert again.settings.hotkey_hide == "Ctrl+Alt+H"
 
         due = datetime.now() + timedelta(minutes=5)
         reminder_task = service.add_task("remind-me")

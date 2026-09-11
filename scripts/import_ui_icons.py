@@ -22,6 +22,7 @@ ICONS = {
     "action_settings.png": "c__Users_50461_AppData_Roaming_Cursor_User_workspaceStorage_532faae449f0e1b21427a9d7ff817853_images___-e259b040-96e3-4190-bc87-6bde2bb386f1.png",
     "nav_chat.png": "c__Users_50461_AppData_Roaming_Cursor_User_workspaceStorage_532faae449f0e1b21427a9d7ff817853_images_AI__-720dda6b-44a3-4b36-b5e1-52d96e173304.png",
     "action_theme.png": "c__Users_50461_AppData_Roaming_Cursor_User_workspaceStorage_532faae449f0e1b21427a9d7ff817853_images___-ca94916c-0d73-46e7-a8d5-af151ec6d5ca.png",
+    "nav_tools.png": "c__Users_50461_AppData_Roaming_Cursor_User_workspaceStorage_532faae449f0e1b21427a9d7ff817853_images____-__-0-554e3947-d813-4d5e-b0aa-75c4b049d297.png",
 }
 
 
