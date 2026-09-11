@@ -292,6 +292,13 @@ def _draw_kind(p: QPainter, kind: str, c: QColor) -> None:
         path.cubicTo(19.8, 10.8, 17.8, 14.6, 12, 19)
         path.closeSubpath()
         p.drawPath(path)
+    elif kind == "wrench":
+        p.save()
+        p.translate(12, 12)
+        p.rotate(-40)
+        p.drawRoundedRect(QRectF(-1.3, -1.5, 2.4, 11.5), 1.1, 1.1)
+        p.drawRoundedRect(QRectF(-3.8, -8.6, 7.4, 6.6), 1.8, 1.8)
+        p.restore()
 
 
 def stroke_icon(kind: str, color: str, size: int = 18) -> QIcon:

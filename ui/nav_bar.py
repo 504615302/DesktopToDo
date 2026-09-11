@@ -13,6 +13,7 @@ PAGES = [
     ("memo", "备忘", "nav_memo"),
     ("report", "周报", "nav_report"),
     ("chat", "问答", "nav_chat"),
+    ("tools", "工具", "nav_tools"),
 ]
 
 
@@ -60,9 +61,10 @@ class NavBar(QWidget):
 
     def _page_icon(self, name: str):
         icon = asset_icon(name, 20)
-        if icon.isNull():
-            return stroke_icon("chat" if name == "nav_chat" else "sparkle", self._theme.accent, 20)
-        return icon
+        if not icon.isNull():
+            return icon
+        fallback = {"nav_chat": "chat", "nav_tools": "wrench", "nav_memo": "note", "nav_report": "calendar"}
+        return stroke_icon(fallback.get(name, "sparkle"), self._theme.accent, 20)
 
     def refresh(self) -> None:
         for key, button in self._buttons.items():

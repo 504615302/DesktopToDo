@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
@@ -20,6 +19,7 @@ from ui.datetime_picker import IconButton
 from ui.icons import asset_pixmap, stroke_icon
 from ui.page_utils import clear_layout, empty_label, make_scroll
 from ui.styles import Theme
+from ui.submit_edit import SubmitTextEdit
 
 
 def _shorten(text: str, limit: int) -> str:
@@ -118,17 +118,6 @@ class MemoCard(QWidget):
             self.delete_requested.emit(self.memo)
 
 
-class MemoBodyEdit(QPlainTextEdit):
-    save_requested = Signal()
-
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        if event.key() in (Qt.Key_Return, Qt.Key_Enter) and not event.modifiers() & Qt.ShiftModifier:
-            self.save_requested.emit()
-            event.accept()
-            return
-        super().keyPressEvent(event)
-
-
 class MemoPage(QWidget):
     changed = Signal()
 
@@ -180,8 +169,8 @@ class MemoPage(QWidget):
         title_row.addWidget(self.title_edit, 1)
         title_row.addWidget(self.status)
 
-        self.editor = MemoBodyEdit()
-        self.editor.setPlaceholderText("写下备忘，Enter 保存，Shift+Enter 换行")
+        self.editor = SubmitTextEdit()
+        self.editor.setPlaceholderText("写下备忘，Enter 换行，Ctrl+Enter 保存")
         self.editor.setFrameStyle(QPlainTextEdit.NoFrame)
 
         footer = QHBoxLayout()
@@ -203,7 +192,7 @@ class MemoPage(QWidget):
             widget.textChanged.connect(self._on_edit)
         self.title_edit.returnPressed.connect(self._save_from_enter)
         self.tags_edit.returnPressed.connect(self._save_from_enter)
-        self.editor.save_requested.connect(self._save_from_enter)
+        self.editor.submit_requested.connect(self._save_from_enter)
         self.pin_check.toggled.connect(self._on_flag_changed)
         self.report_check.toggled.connect(self._on_flag_changed)
 
@@ -274,7 +263,7 @@ class MemoPage(QWidget):
         self.list_caption.setText(f"全部备忘  {len(memos)}" if memos else "全部备忘")
         clear_layout(self.list_layout)
         if not memos:
-            self.list_layout.addWidget(empty_label("还没有备忘，在下方输入后按 Enter 保存", self._theme))
+            self.list_layout.addWidget(empty_label("还没有备忘，在下方输入后按 Ctrl+Enter 保存", self._theme))
             self.list_layout.addStretch()
             return
         for memo in memos:
@@ -298,7 +287,7 @@ class MemoPage(QWidget):
         self.tags_edit.setText(memo.tags if memo else "")
         self.pin_check.setChecked(bool(memo and memo.is_pinned))
         self.report_check.setChecked(True if memo is None else memo.include_in_report)
-        self.status.setText("Enter 保存")
+        self.status.setText("Ctrl+Enter 保存")
         self._loading = False
         self.reload()
 

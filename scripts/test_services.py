@@ -61,12 +61,13 @@ def test_task_and_settings_roundtrip() -> None:
         assert second.description == ""
 
         settings = SettingsService(tmp / "settings.json")
-        settings.update(always_on_top=False, opacity=0.0, theme="cute", lock_position=True)
+        settings.update(always_on_top=False, opacity=0.0, theme="cute", lock_position=True, hotkey_todo="Ctrl+Shift+T")
         again = SettingsService(tmp / "settings.json")
         assert again.settings.always_on_top is False
         assert again.settings.opacity == 0.0
         assert again.settings.theme == "cute"
         assert again.settings.lock_position is True
+        assert again.settings.hotkey_todo == "Ctrl+Shift+T"
 
         due = datetime.now() + timedelta(minutes=5)
         reminder_task = service.add_task("remind-me")
@@ -127,6 +128,51 @@ def test_task_and_settings_roundtrip() -> None:
         context = build_qa_context([first], [note], include_tasks=True, include_memos=True)
         assert "未完成待办" in context or "最近已完成" in context
         assert "MCP" in context
+        from datetime import date as date_cls
+
+        from service.tools_service import (
+            ToolsError,
+            almanac_for,
+            day_ganzhi,
+            decode_base64,
+            encode_base64,
+            format_json,
+            minify_json,
+            naming_styles,
+            parse_name_words,
+            parse_time_value,
+            split_identifier,
+            time_snapshot,
+        )
+
+        pretty = format_json('{"a":1}')
+        assert '"a"' in pretty and "1" in pretty
+        assert minify_json(pretty) == '{"a":1}'
+        assert decode_base64(encode_base64("桌面")) == "桌面"
+        stamp = parse_time_value("2026-09-11 10:32:00")
+        snap = time_snapshot(stamp)
+        assert snap["local"] == "2026-09-11 10:32:00"
+        assert parse_time_value(snap["seconds"]).year == 2026
+        assert split_identifier("userName") == ["user", "name"]
+        assert split_identifier("HTTPServer") == ["http", "server"]
+        styles = naming_styles(["user", "name"])
+        assert styles["snake_case"] == "user_name"
+        assert styles["camelCase"] == "userName"
+        assert styles["PascalCase"] == "UserName"
+        assert styles["CONSTANT"] == "USER_NAME"
+        assert styles["kebab-case"] == "user-name"
+        assert parse_name_words("get user profile!") == ["get", "user", "profile"]
+        try:
+            split_identifier("用户名")
+            raise AssertionError("chinese should require AI")
+        except ToolsError:
+            pass
+        gan, zhi = day_ganzhi(date_cls(1899, 12, 22))
+        assert gan == "甲" and zhi == "子"
+        almanac = almanac_for(date_cls(2026, 9, 11))
+        assert almanac == almanac_for(date_cls(2026, 9, 11))
+        assert "2026年09月11日" in almanac
+        assert "宜" in almanac and "忌" in almanac
     finally:
         db.close()
         tmp_dir.cleanup()

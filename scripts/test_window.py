@@ -32,7 +32,13 @@ def test_window_builds() -> None:
         window.reload_all()
         titles = [item.task.title for item in window.today_page._items + window.todo_page._items]
         assert "窗口冒烟测试" in titles
-        assert window.stack.count() == 5
+        assert window.stack.count() == 6
+        window.set_page("tools")
+        assert window.tools_page._current == "json"
+        assert window.tools_page.stack.count() == 7
+        window.tools_page._set_tool("alias")
+        window.tools_page._set_tool("almanac")
+        assert "宜" in window.tools_page._almanac_out.toPlainText()
         window.toggle_compact()
         app.processEvents()
         assert window._compact is True
@@ -41,6 +47,12 @@ def test_window_builds() -> None:
         window.toggle_compact()
         app.processEvents()
         assert window._compact is False
+        from service.hotkey_service import normalize_hotkey, parse_hotkey
+
+        assert parse_hotkey("Ctrl+Alt+T") is not None
+        assert parse_hotkey("T") is None
+        assert normalize_hotkey("ctrl+alt+n", "Ctrl+Alt+N").lower().endswith("n")
+        assert window._hotkey_bindings()["todo"]
         dialog = window.chat_page
         dialog._refresh_model_button()
         assert "选择模型" in dialog.model_btn.text() or "·" in dialog.model_btn.text()

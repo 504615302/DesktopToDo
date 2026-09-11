@@ -25,6 +25,10 @@ class AppSettings:
     default_report_template: int | None = None
     qa_temperature: float | None = None
     qa_max_tokens: int | None = None
+    hotkey_todo: str = "Ctrl+Alt+T"
+    hotkey_memo: str = "Ctrl+Alt+N"
+    hotkey_report: str = "Ctrl+Alt+W"
+    hotkey_chat: str = "Ctrl+Alt+Q"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AppSettings":
@@ -43,6 +47,10 @@ class AppSettings:
             settings.qa_temperature = min(2.0, max(0.0, float(settings.qa_temperature)))
         if settings.qa_max_tokens is not None:
             settings.qa_max_tokens = min(8192, max(256, int(settings.qa_max_tokens)))
+        settings.hotkey_todo = str(settings.hotkey_todo or "Ctrl+Alt+T")
+        settings.hotkey_memo = str(settings.hotkey_memo or "Ctrl+Alt+N")
+        settings.hotkey_report = str(settings.hotkey_report or "Ctrl+Alt+W")
+        settings.hotkey_chat = str(settings.hotkey_chat or "Ctrl+Alt+Q")
         return settings
 
     def to_dict(self) -> dict[str, Any]:

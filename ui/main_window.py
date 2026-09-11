@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
 from model.settings import AppSettings
 from model.task import Priority, Task
 from service.app_context import AppContext
-from service.hotkey_service import HotkeyService
+from service.hotkey_service import DEFAULT_HOTKEYS, HotkeyService, normalize_hotkey
 from service.reminder_service import ReminderService
 from ui.ai_model_dialog import AIModelListDialog
 from ui.card_window import MARGIN, CardWindow
@@ -48,6 +48,7 @@ from ui.template_dialog import TemplateListDialog
 from ui.title_bar import TitleBar
 from ui.today_page import TodayPage
 from ui.todo_page import TodoPage
+from ui.tools_page import ToolsPage
 from version import APP_DISPLAY_NAME
 
 
@@ -63,6 +64,8 @@ class MainWindow(CardWindow):
         self._alert_anim: QPropertyAnimation | None = None
         self._alert_origin: QPoint | None = None
         self._hotkeys: HotkeyService | None = None
+        self._shortcuts: list[QShortcut] = []
+        self._fallback_shortcuts: list[QShortcut] = []
         self._compact = False
         self._full_geometry = None
         self._page_before_compact = "today"
@@ -119,6 +122,7 @@ class MainWindow(CardWindow):
         self.memo_page = MemoPage(self.theme, self.ctx.memos)
         self.report_page = ReportPage(self.theme, self.ctx)
         self.chat_page = ChatPage(self.theme, self.ctx)
+        self.tools_page = ToolsPage(self.theme, self.ctx)
         for page in (self.today_page, self.todo_page):
             page.task_toggled.connect(self._on_toggled)
             page.edit_requested.connect(self.edit_task)
@@ -133,6 +137,7 @@ class MainWindow(CardWindow):
         self.stack.addWidget(self.memo_page)
         self.stack.addWidget(self.report_page)
         self.stack.addWidget(self.chat_page)
+        self.stack.addWidget(self.tools_page)
         root.addWidget(self.stack, 1)
         self.chat_page.layout_changed.connect(self._fit_compact_size)
 
@@ -164,6 +169,7 @@ class MainWindow(CardWindow):
             ("新增备忘录", self.quick_memo_from_tray),
             ("AI 周报", self.open_report),
             ("AI 问答", self.open_chat),
+            ("小工具", self.open_tools),
             ("支持作者", self.open_support),
             ("设置", self.open_settings),
         ]
@@ -180,18 +186,62 @@ class MainWindow(CardWindow):
         self.tray.show()
 
     def _setup_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+N"), self, activated=self.quick_add.setFocus)
-        QShortcut(QKeySequence("Esc"), self, activated=self.quick_add.clear)
-        QShortcut(QKeySequence("Ctrl+Alt+T"), self, activated=self.quick_add_from_tray)
-        QShortcut(QKeySequence("Ctrl+Alt+N"), self, activated=self.quick_memo_from_tray)
-        QShortcut(QKeySequence("Ctrl+Alt+W"), self, activated=self.open_report)
-        QShortcut(QKeySequence("Ctrl+Alt+Q"), self, activated=self.open_chat)
+        self._apply_local_shortcuts()
+        self._apply_hotkey_shortcuts()
+
+    def _hotkey_bindings(self) -> dict[str, str]:
+        settings = self.settings
+        return {
+            "todo": normalize_hotkey(settings.hotkey_todo, DEFAULT_HOTKEYS["todo"]),
+            "memo": normalize_hotkey(settings.hotkey_memo, DEFAULT_HOTKEYS["memo"]),
+            "report": normalize_hotkey(settings.hotkey_report, DEFAULT_HOTKEYS["report"]),
+            "chat": normalize_hotkey(settings.hotkey_chat, DEFAULT_HOTKEYS["chat"]),
+        }
+
+    def _clear_shortcuts(self, items: list[QShortcut]) -> None:
+        for item in items:
+            item.setParent(None)
+            item.deleteLater()
+
+    def _bind_shortcut(self, sequence: str, slot) -> QShortcut:
+        shortcut = QShortcut(QKeySequence(sequence), self)
+        shortcut.activated.connect(slot)
+        return shortcut
+
+    def _apply_local_shortcuts(self) -> None:
+        self._clear_shortcuts(self._shortcuts)
+        self._shortcuts = [
+            self._bind_shortcut("Ctrl+N", self.quick_add.setFocus),
+            self._bind_shortcut("Esc", self.quick_add.clear),
+        ]
+
+    def _apply_hotkey_shortcuts(self, skip: set[str] | None = None) -> None:
+        skip = skip or set()
+        self._clear_shortcuts(self._fallback_shortcuts)
+        self._fallback_shortcuts = []
+        slots = {
+            "todo": self.quick_add_from_tray,
+            "memo": self.quick_memo_from_tray,
+            "report": self.open_report,
+            "chat": self.open_chat,
+        }
+        for action, sequence in self._hotkey_bindings().items():
+            if action in skip:
+                continue
+            self._fallback_shortcuts.append(self._bind_shortcut(sequence, slots[action]))
+
+    def _apply_shortcuts(self) -> None:
+        self._apply_local_shortcuts()
+        skip = self._hotkeys.registered_actions() if self._hotkeys else set()
+        self._apply_hotkey_shortcuts(skip)
 
     def _install_hotkeys(self) -> None:
         hwnd = int(self.winId())
-        self._hotkeys = HotkeyService(hwnd, self)
-        self._hotkeys.activated.connect(self._on_hotkey)
-        self._hotkeys.install(QApplication.instance())
+        if self._hotkeys is None:
+            self._hotkeys = HotkeyService(hwnd, self)
+            self._hotkeys.activated.connect(self._on_hotkey)
+        self._hotkeys.install(QApplication.instance(), self._hotkey_bindings())
+        self._apply_shortcuts()
 
     def _on_hotkey(self, action: str) -> None:
         if action == "todo":
@@ -224,6 +274,7 @@ class MainWindow(CardWindow):
         self.memo_page.apply_theme(self.theme)
         self.report_page.apply_theme(self.theme)
         self.chat_page.apply_theme(self.theme)
+        self.tools_page.apply_theme(self.theme)
         self._style_quick_add()
         self._style_banner()
         self._sync_quick_add_mode()
@@ -254,7 +305,7 @@ class MainWindow(CardWindow):
         )
 
     def set_page(self, key: str) -> None:
-        mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3, "chat": 4}
+        mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3, "chat": 4, "tools": 5}
         index = mapping.get(key, 0)
         key = list(mapping.keys())[index]
         if self._compact and key != "chat":
@@ -489,6 +540,8 @@ class MainWindow(CardWindow):
         self.settings_service.update(**values)
         self.settings = self.settings_service.settings
         self.apply_appearance()
+        self._apply_shortcuts()
+        self._install_hotkeys()
         self.report_page.reload_options()
         self.chat_page.reload_options()
 
@@ -607,6 +660,10 @@ class MainWindow(CardWindow):
             self.chat_page.focus_input()
             return
         self.set_page("chat")
+        self.show_from_tray()
+
+    def open_tools(self) -> None:
+        self.set_page("tools")
         self.show_from_tray()
 
     def _on_tray_activated(self, reason) -> None:

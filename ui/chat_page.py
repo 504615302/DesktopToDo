@@ -6,7 +6,6 @@ from PySide6.QtCore import QObject, QThread, QTimer, Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -22,6 +21,7 @@ from ui.datetime_picker import IconButton
 from ui.icons import stroke_icon
 from ui.page_utils import empty_label, make_scroll, style_chip
 from ui.styles import Theme
+from ui.submit_edit import SubmitTextEdit
 
 HINTS = {
     "cute": "问问今天先做什么，或让我帮你理一理待办 ✦",
@@ -136,9 +136,10 @@ class ChatPage(QWidget):
         self._ask_icon = QLabel()
         self._ask_icon.setFixedSize(18, 18)
         self._ask_icon.hide()
-        self.input = QLineEdit()
-        self.input.setFixedHeight(36)
-        self.input.returnPressed.connect(self.send)
+        self.input = SubmitTextEdit()
+        self.input.setFixedHeight(52)
+        self.input.setTabChangesFocus(True)
+        self.input.submit_requested.connect(self.send)
         self.send_btn = QPushButton("提问")
         self.send_btn.setObjectName("primaryButton")
         self.send_btn.setCursor(Qt.PointingHandCursor)
@@ -187,7 +188,7 @@ class ChatPage(QWidget):
 
     def compact_height(self) -> int:
         spacing = self._root.spacing()
-        height = self.input.height() or 36
+        height = max(36, self.input.height())
         if self.status.isVisible():
             height += spacing + max(16, self.status.sizeHint().height())
         if self.scroll.isVisible():
@@ -210,7 +211,7 @@ class ChatPage(QWidget):
             self.scroll.setVisible(self._has_messages())
             if not self._has_messages():
                 self._clear_list()
-            self.input.setPlaceholderText("输入问题，Enter 提问")
+            self.input.setPlaceholderText("输入问题，Enter 换行，Ctrl+Enter 提问")
         else:
             self.scroll.show()
             self.input.setPlaceholderText(HINTS.get(self._theme.name, HINTS["minimal"]))
@@ -226,7 +227,7 @@ class ChatPage(QWidget):
         self.send_btn.setIcon(stroke_icon("sparkle", theme.primary_text, 16))
         self._ask_icon.setPixmap(stroke_icon("sparkle", theme.accent, 16).pixmap(16, 16))
         if self._compact:
-            self.input.setPlaceholderText("输入问题，Enter 提问")
+            self.input.setPlaceholderText("输入问题，Enter 换行，Ctrl+Enter 提问")
         else:
             self.input.setPlaceholderText(HINTS.get(theme.name, HINTS["minimal"]))
         self._refresh_chips()
@@ -335,7 +336,7 @@ class ChatPage(QWidget):
         bar.setValue(bar.maximum())
 
     def send(self) -> None:
-        question = self.input.text().strip()
+        question = self.input.toPlainText().strip()
         if not question:
             return
         if self._thread and self._thread.isRunning():

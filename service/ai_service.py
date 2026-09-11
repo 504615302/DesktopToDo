@@ -28,6 +28,12 @@ QA_SYSTEM_PROMPT = """你是桌面代办里的问答助手。
 可以用短条目列出建议，避免空话套话。
 """
 
+TRANSLATE_SYSTEM_PROMPT = """你是翻译引擎。只输出译文，不要解释、不要引号、不要标注语言。
+"""
+
+NAME_SYSTEM_PROMPT = """你把用户输入起成英文变量名。只输出 2 到 4 个小写英文单词，用空格分隔，不要编号、不要标点、不要解释。
+"""
+
 _COMPLETION_TOKEN_MARKERS = (
     "o1",
     "o3",
@@ -96,14 +102,19 @@ class AIService:
         )
         return self._chat(config, key, prompt, max_tokens=config.max_tokens)
 
-    def ask(self, config: AIModelConfig, history: list[dict]) -> str:
+    def ask(
+        self,
+        config: AIModelConfig,
+        history: list[dict],
+        system_prompt: str = QA_SYSTEM_PROMPT,
+    ) -> str:
         key = self._credentials.decrypt(config.encrypted_api_key)
         return self._chat(
             config,
             key,
             "",
             max_tokens=config.max_tokens,
-            system_prompt=QA_SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             history=history,
         )
 

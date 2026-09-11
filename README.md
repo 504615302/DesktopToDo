@@ -54,7 +54,7 @@ dist\DesktopTODO.exe          绿色版
 dist\DesktopToDo-Setup.exe    安装包（需已安装 Inno Setup）
 ```
 
-打 GitHub Release：把 `v1.1.0` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
+打 GitHub Release：把 `v1.1.1` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
 
 ## 使用说明
 
@@ -65,6 +65,7 @@ dist\DesktopToDo-Setup.exe    安装包（需已安装 Inno Setup）
 | 编辑任务 | 双击或右键编辑 |
 | 备忘 | 备忘页输入后按 Enter 保存 |
 | 问答 | 问答页提问；折叠窗口后只留输入框 |
+| 小工具 | 底部「工具」：JSON、翻译、时间戳、编码、哈希、变量别名、老黄历 |
 | 置顶 / 主题 / 设置 | 标题栏按钮 |
 | 退出 | 托盘菜单「退出」 |
 
@@ -85,3 +86,11 @@ data/todo.db
 %LOCALAPPDATA%\DesktopToDo\config\settings.json
 %LOCALAPPDATA%\DesktopToDo\data\todo.db
 ```
+
+## 请作者喝咖啡
+
+如果桌面代办帮到你了，欢迎扫码请作者喝杯咖啡。
+
+| 微信 | 支付宝 |
+| :---: | :---: |
+| <img src="resources/pay/wechat.png" width="260" alt="微信支付"> | <img src="resources/pay/alipay.png" width="260" alt="支付宝"> |
