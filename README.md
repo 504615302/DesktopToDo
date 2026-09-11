@@ -54,7 +54,7 @@ dist\DesktopTODO.exe          绿色版
 dist\DesktopToDo-Setup.exe    安装包（需已安装 Inno Setup）
 ```
 
-打 GitHub Release：把 `v1.1.1` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
+打 GitHub Release：把 `v1.1.2` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
 
 ## 使用说明
 
