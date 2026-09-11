@@ -17,6 +17,7 @@ from service.credential_service import CredentialService
 from service.memo_service import MemoService
 from service.report_service import ReportService
 from service.settings_service import SettingsService
+from service.shortcut_service import sync_desktop_shortcut_icon
 from service.startup_service import StartupService
 from service.task_service import TaskService
 from ui.icons import app_icon
@@ -94,6 +95,7 @@ def main() -> int:
 
     window = MainWindow(ctx)
     _listen_for_activation(window)
+    QTimer.singleShot(0, sync_desktop_shortcut_icon)
 
     code = app.exec()
     database.close()

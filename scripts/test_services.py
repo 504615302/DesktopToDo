@@ -76,6 +76,10 @@ def test_task_and_settings_roundtrip() -> None:
         assert again.settings.lock_position is True
         assert again.settings.hotkey_todo == "Ctrl+Shift+T"
         assert again.settings.hotkey_hide == "Ctrl+Alt+H"
+        from service.shortcut_service import _ps_quote, desktop_shortcut_path
+
+        assert _ps_quote("C:\\a'b") == "'C:\\a''b'"
+        assert desktop_shortcut_path().name == "桌面代办.lnk"
 
         due = datetime.now() + timedelta(minutes=5)
         reminder_task = service.add_task("remind-me")

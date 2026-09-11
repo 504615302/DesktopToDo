@@ -11,7 +11,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QImage
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = Path(r"C:\Users\50461\.cursor\projects\d-DesktopToDo-DesktopToDo\assets")
-SOURCE = ASSETS / "c__Users_50461_AppData_Roaming_Cursor_User_workspaceStorage_532faae449f0e1b21427a9d7ff817853_images_ChatGPT_Image_2026_9_11__17_03_04-fcc9a5ce-86e5-426c-99c3-cc5b7ac412f0.jpg"
+SOURCE = ASSETS / "c__Users_50461_AppData_Roaming_Cursor_User_workspaceStorage_532faae449f0e1b21427a9d7ff817853_images_ChatGPT_Image_2026_9_11__17_03_04-8db98ce6-4552-4968-81b4-ffae4fa2c319.jpg"
 DEST = ROOT / "resources" / "icons" / "app.png"
 
 

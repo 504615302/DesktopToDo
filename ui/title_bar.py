@@ -7,8 +7,8 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QSizePolicy, QWidget
 from ui.datetime_picker import IconButton
 from ui.styles import THEME_CHOICES, Theme
 
-TITLE_BTN = 40
-TITLE_ICON = 22
+TITLE_BTN = 36
+TITLE_ICON = 20
 
 
 class TitleBar(QWidget):
@@ -27,12 +27,12 @@ class TitleBar(QWidget):
         self._pinned = False
         self._compact = False
         self._drag_offset: QPoint | None = None
-        self.setFixedHeight(48)
+        self.setFixedHeight(46)
         self._title = QLabel(theme.title)
         self._title.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {theme.text};")
 
         self.lock_btn = IconButton("unlock", theme.text_secondary, "锁定位置", TITLE_BTN, TITLE_ICON)
-        self.pin_btn = IconButton("pin", theme.text_secondary, "窗口置顶", TITLE_BTN, TITLE_ICON)
+        self.pin_btn = IconButton("pin-top", theme.text_secondary, "窗口置顶", TITLE_BTN, TITLE_ICON)
         self.theme_btn = IconButton("theme", theme.text_secondary, "切换主题", TITLE_BTN, TITLE_ICON)
         self.settings_btn = IconButton("settings", theme.text_secondary, "设置", TITLE_BTN, TITLE_ICON)
         self.min_btn = IconButton("minimize", theme.text_secondary, "最小化", TITLE_BTN, TITLE_ICON)
@@ -48,7 +48,7 @@ class TitleBar(QWidget):
         self.close_btn.clicked.connect(self.close_clicked.emit)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 4, 2, 4)
+        layout.setContentsMargins(4, 5, 2, 5)
         layout.setSpacing(2)
         layout.addWidget(self._title)
         layout.addStretch()
@@ -73,7 +73,7 @@ class TitleBar(QWidget):
 
     def set_pinned(self, pinned: bool) -> None:
         self._pinned = pinned
-        kind = "pinned" if pinned else "pin"
+        kind = "keep-top" if pinned else "pin-top"
         color = self._theme.accent if pinned else self._theme.text_secondary
         self.pin_btn.set_kind(kind, color)
         self.pin_btn.setToolTip("取消置顶" if pinned else "窗口置顶")
