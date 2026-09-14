@@ -76,6 +76,11 @@ def test_task_and_settings_roundtrip() -> None:
         assert again.settings.lock_position is True
         assert again.settings.hotkey_todo == "Ctrl+Shift+T"
         assert again.settings.hotkey_hide == "Ctrl+Alt+H"
+        from service.hotkey_service import parse_hotkey, restore_ctrl_letter_key
+        from PySide6.QtCore import Qt
+
+        assert parse_hotkey("Ctrl+H") is not None
+        assert restore_ctrl_letter_key(int(Qt.Key_Backspace), Qt.ControlModifier) == int(Qt.Key_H)
         from service.shortcut_service import _ps_quote, desktop_shortcut_path
 
         assert _ps_quote("C:\\a'b") == "'C:\\a''b'"

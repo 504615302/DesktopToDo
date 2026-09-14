@@ -64,6 +64,7 @@ class MainWindow(CardWindow):
         self._alert_anim: QPropertyAnimation | None = None
         self._alert_origin: QPoint | None = None
         self._hotkeys: HotkeyService | None = None
+        self._hotkeys_paused = False
         self._shortcuts: list[QShortcut] = []
         self._fallback_shortcuts: list[QShortcut] = []
         self._compact = False
@@ -237,10 +238,17 @@ class MainWindow(CardWindow):
         skip = self._hotkeys.registered_actions() if self._hotkeys else set()
         self._apply_hotkey_shortcuts(skip)
 
+    def _pause_hotkeys(self) -> None:
+        self._hotkeys_paused = True
+        if self._hotkeys:
+            self._hotkeys.uninstall()
+        self._clear_shortcuts(self._fallback_shortcuts)
+        self._fallback_shortcuts = []
+
     def _install_hotkeys(self) -> None:
-        hwnd = int(self.winId())
+        self._hotkeys_paused = False
         if self._hotkeys is None:
-            self._hotkeys = HotkeyService(hwnd, self)
+            self._hotkeys = HotkeyService(self)
             self._hotkeys.activated.connect(self._on_hotkey)
         self._hotkeys.install(QApplication.instance(), self._hotkey_bindings())
         self._apply_shortcuts()
@@ -283,6 +291,8 @@ class MainWindow(CardWindow):
         self._style_banner()
         self._sync_quick_add_mode()
         self.apply_flags(self.settings.always_on_top)
+        if self._hotkeys is not None and not self._hotkeys_paused:
+            QTimer.singleShot(0, self._install_hotkeys)
         if self._compact:
             self._apply_compact_chrome()
             QTimer.singleShot(0, self._fit_compact_size)
@@ -526,6 +536,7 @@ class MainWindow(CardWindow):
 
     def open_settings(self) -> None:
         self.show_from_tray()
+        self._pause_hotkeys()
         snapshot = self.settings.to_dict()
         dialog = SettingsDialog(self.theme, self.settings, self)
         dialog.opacity_previewed.connect(self.setWindowOpacity)
@@ -538,13 +549,13 @@ class MainWindow(CardWindow):
             self.settings = AppSettings.from_dict(snapshot)
             self.settings_service.save(self.settings)
             self.apply_appearance()
+            self._install_hotkeys()
             return
         values = dialog.result_values()
         self.startup_service.set_enabled(values["auto_start"])
         self.settings_service.update(**values)
         self.settings = self.settings_service.settings
         self.apply_appearance()
-        self._apply_shortcuts()
         self._install_hotkeys()
         self.report_page.reload_options()
         self.chat_page.reload_options()

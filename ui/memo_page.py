@@ -78,7 +78,7 @@ class MemoCard(QWidget):
 
         meta_bits = [part for part in (memo.tags.strip(), date_text) if part]
         meta = QLabel("  ·  ".join(meta_bits) if meta_bits else memo.category)
-        meta.setStyleSheet(f"color: {theme.text_muted}; font-size: 11px;")
+        meta.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -216,9 +216,9 @@ class MemoPage(QWidget):
     def _apply_editor_style(self) -> None:
         theme = self._theme
         self.list_caption.setStyleSheet(
-            f"color: {theme.text_muted}; font-size: 12px; font-weight: 600; padding: 0 2px;"
+            f"color: {theme.text_secondary}; font-size: 12px; font-weight: 600; padding: 0 2px;"
         )
-        self.status.setStyleSheet(f"color: {theme.text_muted}; font-size: 11px;")
+        self.status.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
         radius = max(10, theme.chip_radius)
         self.editor_panel.setStyleSheet(
             f"""

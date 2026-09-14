@@ -223,7 +223,7 @@ class ChatPage(QWidget):
         theme = self._theme
         self.clear_btn.set_color(theme.text_secondary)
         self.compact_model_btn.set_color(theme.text_secondary)
-        self.status.setStyleSheet(f"color: {theme.text_muted}; font-size: 11px;")
+        self.status.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
         self.send_btn.setIcon(stroke_icon("sparkle", theme.primary_text, 16))
         self._ask_icon.setPixmap(stroke_icon("sparkle", theme.accent, 16).pixmap(16, 16))
         if self._compact:

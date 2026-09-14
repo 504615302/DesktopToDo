@@ -9,7 +9,7 @@ from ui.styles import Theme
 def section_label(text: str, theme: Theme) -> QLabel:
     label = QLabel(text)
     label.setStyleSheet(
-        f"color: {theme.text_muted}; font-size: 12px; font-weight: 600; padding: 8px 8px 4px 8px;"
+        f"color: {theme.text_secondary}; font-size: 12px; font-weight: 600; padding: 8px 8px 4px 8px;"
     )
     return label
 
@@ -18,7 +18,7 @@ def empty_label(text: str, theme: Theme) -> QLabel:
     label = QLabel(text)
     label.setAlignment(Qt.AlignCenter)
     label.setWordWrap(True)
-    label.setStyleSheet(f"color: {theme.text_muted}; padding: 28px 8px;")
+    label.setStyleSheet(f"color: {theme.text_secondary}; padding: 28px 8px;")
     return label
 
 
@@ -72,7 +72,7 @@ def style_nav_button(button, theme: Theme, active: bool) -> None:
             border: 1px solid {border};
             border-radius: {radius}px;
             padding: 6px 2px 5px 2px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: {"600" if active else "500"};
         }}
         QToolButton:hover {{

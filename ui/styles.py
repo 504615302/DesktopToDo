@@ -79,13 +79,13 @@ BUSINESS = Theme(
     hover="#2F4B63",
     border="#3E5C74",
     text="#E7EEF4",
-    text_secondary="#A8B7C6",
-    text_muted="#8799AB",
+    text_secondary="#B7C6D4",
+    text_muted="#A3B2C0",
     accent="#C4B47A",
     accent_soft="#2A3F53",
     danger="#DE8C8C",
     success="#73BE79",
-    completed="#8B9BAA",
+    completed="#9AA8B4",
     shadow="#152232",
     input_bg="#1B3043",
     chip_active="#314D64",
@@ -139,13 +139,13 @@ TECH = Theme(
     hover="#162033",
     border="#1C3D4A",
     text="#D7F6FF",
-    text_secondary="#7FB8C9",
-    text_muted="#4E7A8A",
+    text_secondary="#9AD0DE",
+    text_muted="#8AADB8",
     accent="#2EE6D6",
     accent_soft="#0C2A30",
     danger="#FF5D7A",
     success="#3DFF9A",
-    completed="#4A6B78",
+    completed="#8AA2AC",
     shadow="#02040A",
     input_bg="#0A111C",
     chip_active="#12363C",
@@ -222,6 +222,9 @@ def build_stylesheet(theme: Theme) -> str:
     }}
     QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QDateTimeEdit:focus, QDateEdit:focus {{
         border: 1px solid {theme.accent};
+    }}
+    QLineEdit::placeholder, QPlainTextEdit::placeholder {{
+        color: {theme.text_secondary};
     }}
     QComboBox::drop-down {{
         border: none;

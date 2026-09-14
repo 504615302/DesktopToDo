@@ -282,8 +282,8 @@ class ReportPage(QWidget):
             f"color: {theme.accent}; font-size: 20px; font-weight: 700; letter-spacing: 0.4px;"
         )
         self.week_dates.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
-        self._date_sep.setStyleSheet(f"color: {theme.text_muted};")
-        self.status.setStyleSheet(f"color: {theme.text_muted}; font-size: 11px;")
+        self._date_sep.setStyleSheet(f"color: {theme.text_secondary};")
+        self.status.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
         self.history_btn.set_asset("nav_report")
         self.materials_toggle.set_color(theme.text_secondary)
         self.generate_btn.setText(GENERATE_LABEL.get(theme.name, "生成周报"))
@@ -443,7 +443,7 @@ class ReportPage(QWidget):
                 continue
             empty = False
             heading = QLabel(f"{title}  {len(items)}")
-            heading.setStyleSheet(f"color: {self._theme.text_muted}; font-size: 11px; font-weight: 600; padding: 4px 2px 2px 2px;")
+            heading.setStyleSheet(f"color: {self._theme.text_secondary}; font-size: 12px; font-weight: 600; padding: 4px 2px 2px 2px;")
             self.materials_layout.addWidget(heading)
             for item in items:
                 text = item.display_title() if key == "memos" else item.title
@@ -456,7 +456,7 @@ class ReportPage(QWidget):
                 self._material_checks[key].append(box)
         if empty:
             hint = QLabel("这段时间还没有可勾选的素材")
-            hint.setStyleSheet(f"color: {self._theme.text_muted}; padding: 8px 2px;")
+            hint.setStyleSheet(f"color: {self._theme.text_secondary}; padding: 8px 2px;")
             hint.setWordWrap(True)
             self.materials_layout.addWidget(hint)
         self.materials_layout.addStretch()

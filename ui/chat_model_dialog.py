@@ -44,7 +44,7 @@ class ChatModelDialog(FramedDialog):
         self.temp_slider.valueChanged.connect(self._on_temp_changed)
         self.root.addWidget(self.temp_slider)
         hint = QLabel("越低越稳定，越高越有创意")
-        hint.setStyleSheet(f"color: {theme.text_muted}; font-size: 11px;")
+        hint.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
         self.root.addWidget(hint)
 
         token_head = QHBoxLayout()

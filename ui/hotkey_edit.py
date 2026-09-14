@@ -4,7 +4,7 @@ from PySide6.QtCore import QKeyCombination, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QPushButton
 
-from service.hotkey_service import normalize_hotkey
+from service.hotkey_service import normalize_hotkey, restore_ctrl_letter_key
 
 
 class HotkeyEdit(QPushButton):
@@ -53,15 +53,20 @@ class HotkeyEdit(QPushButton):
         if not self._listening:
             super().keyPressEvent(event)
             return
+        if event.isAutoRepeat():
+            event.accept()
+            return
         key = event.key()
+        mods = event.modifiers()
         if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
             event.accept()
             return
-        if key == Qt.Key_Escape:
+        if key == Qt.Key_Escape and not (mods & Qt.ControlModifier):
             self._stop_listen()
             event.accept()
             return
-        combination = QKeyCombination(event.modifiers(), Qt.Key(key))
+        key = restore_ctrl_letter_key(key, mods, int(event.nativeVirtualKey()))
+        combination = QKeyCombination(mods, Qt.Key(key))
         text = normalize_hotkey(QKeySequence(combination).toString(QKeySequence.PortableText))
         if not text:
             event.accept()

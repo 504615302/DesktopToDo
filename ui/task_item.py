@@ -49,7 +49,7 @@ class CheckMark(QWidget):
             painter.setBrush(QColor(self._theme.accent))
             painter.setPen(Qt.NoPen)
             painter.drawRoundedRect(rect, self._theme.check_radius, self._theme.check_radius)
-            pen = QPen(QColor("#FFFFFF"), 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+            pen = QPen(QColor(self._theme.primary_text), 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
             painter.setPen(pen)
             painter.drawLine(5, 10, 8, 13)
             painter.drawLine(8, 13, 14, 7)
@@ -138,14 +138,14 @@ class TaskItem(QWidget):
         color = self._theme.completed if completed else self._theme.text
         font = QFont()
         font.setStrikeOut(completed)
-        font.setPointSize(10)
+        font.setPixelSize(self._theme.font_size)
         self.title.setFont(font)
         self.title.setText(self.task.title)
         self.title.setStyleSheet(f"color: {color};")
 
         if self.task.description and not completed:
             self.desc.setText(self.task.description.replace("\n", " "))
-            self.desc.setStyleSheet(f"color: {self._theme.text_muted}; font-size: 11px;")
+            self.desc.setStyleSheet(f"color: {self._theme.text_secondary}; font-size: 12px;")
             self.desc.show()
         else:
             self.desc.hide()
@@ -167,7 +167,7 @@ class TaskItem(QWidget):
         due_text = self.task.due_label()
         due_color = self._theme.danger if self.task.is_overdue else self._theme.text_secondary
         self.due.setText(due_text)
-        self.due.setStyleSheet(f"color: {due_color}; font-size: 11px;")
+        self.due.setStyleSheet(f"color: {due_color}; font-size: 12px;")
         visible_due = bool(due_text) and not completed
         self.due.setVisible(visible_due)
         if visible_due:

@@ -48,13 +48,28 @@ def test_window_builds() -> None:
         window.toggle_compact()
         app.processEvents()
         assert window._compact is False
-        from service.hotkey_service import normalize_hotkey, parse_hotkey
+        from service.hotkey_service import normalize_hotkey, parse_hotkey, restore_ctrl_letter_key
+        from PySide6.QtCore import QByteArray, QEvent, Qt
+        from PySide6.QtGui import QKeyEvent
 
         assert parse_hotkey("Ctrl+Alt+T") is not None
+        assert parse_hotkey("Ctrl+H") is not None
         assert parse_hotkey("T") is None
         assert normalize_hotkey("ctrl+alt+n", "Ctrl+Alt+N").lower().endswith("n")
+        assert restore_ctrl_letter_key(int(Qt.Key_Backspace), Qt.ControlModifier, 0) == int(Qt.Key_H)
+        from service.hotkey_service import _event_kind
+
+        assert "windows_generic_MSG" in _event_kind(QByteArray(b"windows_generic_MSG"))
         assert window._hotkey_bindings()["todo"]
         assert window._hotkey_bindings()["hide"] == "Ctrl+Alt+H"
+        from ui.hotkey_edit import HotkeyEdit
+
+        editor = HotkeyEdit("Ctrl+Alt+H", window)
+        editor._start_listen()
+        press = QKeyEvent(QEvent.KeyPress, Qt.Key_Backspace, Qt.ControlModifier)
+        editor.keyPressEvent(press)
+        assert editor.sequence() == "Ctrl+H"
+        editor.deleteLater()
         window.show()
         window.toggle_hidden()
         app.processEvents()

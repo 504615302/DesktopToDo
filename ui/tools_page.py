@@ -236,7 +236,7 @@ class ToolsPage(QWidget):
         self._set_tool(self._current)
 
     def _apply_styles(self) -> None:
-        self.status.setStyleSheet(f"color: {self._theme.text_muted}; font-size: 11px;")
+        self.status.setStyleSheet(f"color: {self._theme.text_secondary}; font-size: 12px;")
 
     def _text(self, placeholder: str) -> QPlainTextEdit:
         edit = QPlainTextEdit()
@@ -250,7 +250,7 @@ class ToolsPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
         caption = QLabel(title)
-        caption.setStyleSheet(f"color: {self._theme.text_muted}; font-size: 11px;")
+        caption.setStyleSheet(f"color: {self._theme.text_secondary}; font-size: 12px;")
         layout.addWidget(caption)
         layout.addWidget(widget)
         widget.setProperty("caption", caption)
