@@ -22,19 +22,23 @@ class TitleBar(QWidget):
 
     def __init__(self, theme: Theme, parent=None):
         super().__init__(parent)
+        self.setObjectName("titleBar")
         self._theme = theme
         self._locked = False
         self._pinned = False
         self._compact = False
         self._drag_offset: QPoint | None = None
-        self.setFixedHeight(46)
+        self.setMinimumHeight(48)
+        self.setFixedHeight(48)
         self._title = QLabel(theme.title)
         self._title.setStyleSheet(f"font-size: 16px; font-weight: 600; color: {theme.text};")
 
         self.lock_btn = IconButton("unlock", theme.text_secondary, "锁定位置", TITLE_BTN, TITLE_ICON)
-        self.pin_btn = IconButton("pin-top", theme.text_secondary, "窗口置顶", TITLE_BTN, TITLE_ICON)
-        self.theme_btn = IconButton("theme", theme.text_secondary, "切换主题", TITLE_BTN, TITLE_ICON)
-        self.settings_btn = IconButton("settings", theme.text_secondary, "设置", TITLE_BTN, TITLE_ICON)
+        self.pin_btn = IconButton("sf-pin", theme.text_secondary, "窗口置顶", TITLE_BTN, TITLE_ICON)
+        self.theme_btn = IconButton("sf-palette", theme.text_secondary, "切换主题", TITLE_BTN, TITLE_ICON)
+        self.settings_btn = IconButton("sf-sliders", theme.text_secondary, "设置", TITLE_BTN, TITLE_ICON)
+        for button in (self.pin_btn, self.theme_btn, self.settings_btn):
+            button.setObjectName("titleUtilityButton")
         self.min_btn = IconButton("minimize", theme.text_secondary, "最小化", TITLE_BTN, TITLE_ICON)
         self.compact_btn = IconButton("collapse", theme.text_secondary, "折叠为问答", TITLE_BTN, TITLE_ICON)
         self.close_btn = IconButton("close", theme.text_secondary, "关闭到托盘", TITLE_BTN, TITLE_ICON)
@@ -47,19 +51,31 @@ class TitleBar(QWidget):
         self.compact_btn.clicked.connect(self.compact_clicked.emit)
         self.close_btn.clicked.connect(self.close_clicked.emit)
 
+        self.product_actions = QWidget()
+        self.product_actions.setObjectName("productActions")
+        product_layout = QHBoxLayout(self.product_actions)
+        product_layout.setContentsMargins(0, 0, 0, 0)
+        product_layout.setSpacing(0)
+        for button in (self.pin_btn, self.theme_btn, self.settings_btn, self.lock_btn):
+            product_layout.addWidget(button)
+
+        self.window_actions = QWidget()
+        self.window_actions.setObjectName("windowActions")
+        window_layout = QHBoxLayout(self.window_actions)
+        window_layout.setContentsMargins(4, 0, 0, 0)
+        window_layout.setSpacing(0)
+        for button in (self.min_btn, self.compact_btn, self.close_btn):
+            window_layout.addWidget(button)
+
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 5, 2, 5)
-        layout.setSpacing(2)
+        layout.setContentsMargins(6, 4, 2, 4)
+        layout.setSpacing(6)
         layout.addWidget(self._title)
         layout.addStretch()
-        layout.addWidget(self.pin_btn)
-        layout.addWidget(self.theme_btn)
-        layout.addWidget(self.settings_btn)
-        layout.addWidget(self.lock_btn)
-        layout.addWidget(self.min_btn)
-        layout.addWidget(self.compact_btn)
-        layout.addWidget(self.close_btn)
+        layout.addWidget(self.product_actions)
+        layout.addWidget(self.window_actions)
         self._title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.apply_theme(theme)
 
     def set_date(self, text: str) -> None:
         self._title.setToolTip(text)
@@ -73,10 +89,11 @@ class TitleBar(QWidget):
 
     def set_pinned(self, pinned: bool) -> None:
         self._pinned = pinned
-        kind = "keep-top" if pinned else "pin-top"
+        kind = "sf-pin-fill" if pinned else "sf-pin"
         color = self._theme.accent if pinned else self._theme.text_secondary
         self.pin_btn.set_kind(kind, color)
         self.pin_btn.setToolTip("取消置顶" if pinned else "窗口置顶")
+        self._style_utility_buttons()
 
     def set_compact(self, compact: bool) -> None:
         self._compact = compact
@@ -100,12 +117,42 @@ class TitleBar(QWidget):
         self.set_locked(self._locked)
         self.set_pinned(self._pinned)
         self.set_compact(self._compact)
+        self.setStyleSheet(
+            f"#titleBar {{ background: transparent; }} "
+            f"#productActions {{ background: {theme.chrome}; border: 1px solid {theme.separator}; "
+            f"border-radius: 18px; padding: 1px; }} "
+            f"#windowActions {{ border-left: 1px solid {theme.separator}; }}"
+        )
+        self._style_utility_buttons()
+
+    def _style_utility_buttons(self) -> None:
+        for button, active in (
+            (self.pin_btn, self._pinned),
+            (self.theme_btn, False),
+            (self.settings_btn, False),
+        ):
+            button.setStyleSheet(
+                f"""
+                QToolButton#titleUtilityButton {{
+                    background: {self._theme.accent_soft if active else 'transparent'};
+                    border: 1px solid {self._theme.accent if active else 'transparent'};
+                    border-radius: 16px;
+                    padding: 0;
+                }}
+                QToolButton#titleUtilityButton:hover {{ background: {self._theme.hover}; }}
+                QToolButton#titleUtilityButton:pressed {{ background: {self._theme.accent_soft}; }}
+                QToolButton#titleUtilityButton:focus {{ border: 2px solid {self._theme.focus_ring}; }}
+                """
+            )
 
     def _open_theme_menu(self) -> None:
         menu = QMenu(self)
+        menu.addSection("主题风格")
         for label, value in THEME_CHOICES:
             action = menu.addAction(label)
             action.setData(value)
+            action.setCheckable(True)
+            action.setChecked(value == self._theme.name)
         chosen = menu.exec(self.theme_btn.mapToGlobal(self.theme_btn.rect().bottomLeft()))
         if chosen is not None:
             self.theme_selected.emit(str(chosen.data()))

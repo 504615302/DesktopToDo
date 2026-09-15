@@ -31,6 +31,11 @@ class Theme:
     chip_active: str
     banner_bg: str
     banner_text: str
+    chrome: str
+    content_bg: str
+    separator: str
+    focus_ring: str
+    nav_active: str
     primary_text: str = "#FFFFFF"
 
 
@@ -61,6 +66,11 @@ CUTE = Theme(
     chip_active="#FFD6E3",
     banner_bg="#FF7AA2",
     banner_text="#FFFFFF",
+    chrome="#FFF9FB",
+    content_bg="#FFF4F7",
+    separator="#F3DCE4",
+    focus_ring="#FF7AA2",
+    nav_active="#FFFFFF",
     primary_text="#FFFFFF",
 )
 
@@ -91,6 +101,11 @@ BUSINESS = Theme(
     chip_active="#314D64",
     banner_bg="#2A3F53",
     banner_text="#D2C496",
+    chrome="#22384B",
+    content_bg="#1E3346",
+    separator="#355169",
+    focus_ring="#C4B47A",
+    nav_active="#314D64",
     primary_text="#1A1C14",
 )
 
@@ -121,6 +136,11 @@ MINIMAL = Theme(
     chip_active="#DBEAFE",
     banner_bg="#171717",
     banner_text="#FAFAFA",
+    chrome="#F7F7F8",
+    content_bg="#FAFAFA",
+    separator="#E8E8EA",
+    focus_ring="#2563EB",
+    nav_active="#FFFFFF",
     primary_text="#FFFFFF",
 )
 
@@ -151,6 +171,11 @@ TECH = Theme(
     chip_active="#12363C",
     banner_bg="#2EE6D6",
     banner_text="#041016",
+    chrome="#0C1320",
+    content_bg="#070B14",
+    separator="#18313D",
+    focus_ring="#2EE6D6",
+    nav_active="#132331",
     primary_text="#041016",
 )
 
@@ -216,19 +241,20 @@ def build_stylesheet(theme: Theme) -> str:
         background: {theme.input_bg};
         border: 1px solid {theme.border};
         border-radius: {max(6, theme.chip_radius)}px;
-        padding: 8px 10px;
+        padding: 8px 12px;
         color: {theme.text};
         selection-background-color: {theme.accent};
     }}
     QLineEdit:focus, QPlainTextEdit:focus, QComboBox:focus, QDateTimeEdit:focus, QDateEdit:focus {{
-        border: 1px solid {theme.accent};
+        border: 2px solid {theme.focus_ring};
     }}
     QLineEdit::placeholder, QPlainTextEdit::placeholder {{
         color: {theme.text_secondary};
     }}
     QComboBox::drop-down {{
         border: none;
-        width: 24px;
+        border-left: 1px solid {theme.separator};
+        width: 32px;
     }}
     QComboBox QAbstractItemView {{
         background: {theme.surface};
@@ -236,6 +262,49 @@ def build_stylesheet(theme: Theme) -> str:
         selection-background-color: {theme.hover};
         color: {theme.text};
         outline: none;
+        padding: 6px;
+    }}
+    QComboBox QAbstractItemView::item {{
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: {max(6, theme.chip_radius - 2)}px;
+    }}
+    QComboBox QAbstractItemView::item:hover {{
+        background: {theme.hover};
+    }}
+    QComboBox QAbstractItemView::item:selected {{
+        background: {theme.accent};
+        color: {theme.primary_text};
+    }}
+    QComboBox#modelCombo {{
+        padding: 9px 38px 9px 12px;
+        border-radius: {max(8, theme.chip_radius)}px;
+        font-weight: 500;
+    }}
+    QComboBox#modelCombo::drop-down {{
+        width: 34px;
+        border-left: 1px solid {theme.separator};
+    }}
+    QComboBox#modelCombo QAbstractItemView#modelComboMenu {{
+        padding: 6px;
+        border: 1px solid {theme.border};
+        border-radius: {max(8, theme.chip_radius)}px;
+        background: {theme.surface};
+        selection-background-color: {theme.accent};
+        selection-color: {theme.primary_text};
+    }}
+    QComboBox#modelCombo QAbstractItemView#modelComboMenu::item {{
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: {max(6, theme.chip_radius - 2)}px;
+        color: {theme.text};
+    }}
+    QComboBox#modelCombo QAbstractItemView#modelComboMenu::item:hover {{
+        background: {theme.hover};
+    }}
+    QComboBox#modelCombo QAbstractItemView#modelComboMenu::item:selected {{
+        background: {theme.accent};
+        color: {theme.primary_text};
     }}
     QPushButton {{
         background: {theme.surface};
@@ -246,6 +315,9 @@ def build_stylesheet(theme: Theme) -> str:
     }}
     QPushButton:hover {{
         background: {theme.hover};
+    }}
+    QPushButton:focus, QToolButton:focus {{
+        border: 2px solid {theme.focus_ring};
     }}
     QPushButton#primaryButton {{
         background: {theme.accent};

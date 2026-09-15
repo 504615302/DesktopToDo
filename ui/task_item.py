@@ -71,7 +71,7 @@ class TaskItem(QWidget):
         self.task = task
         self._theme = theme
         self.setObjectName("taskItem")
-        self.setMinimumHeight(44)
+        self.setMinimumHeight(52)
         self.setCursor(Qt.PointingHandCursor)
         self._build()
         self._refresh()
@@ -111,7 +111,7 @@ class TaskItem(QWidget):
         self.delete_btn.hide()
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 8, 6, 8)
+        layout.setContentsMargins(10, 9, 8, 9)
         layout.setSpacing(8)
         layout.addWidget(self.check, 0, Qt.AlignVCenter)
         layout.addLayout(text_box, 1)
@@ -176,9 +176,11 @@ class TaskItem(QWidget):
         self._update_background(False)
 
     def _update_background(self, hovered: bool) -> None:
-        bg = self._theme.hover if hovered else "transparent"
+        bg = self._theme.hover if hovered else self._theme.surface
+        border = self._theme.border if hovered else self._theme.separator
         self.setStyleSheet(
-            f"#taskItem {{ background: {bg}; border-radius: {self._theme.chip_radius}px; }}"
+            f"#taskItem {{ background: {bg}; border: 1px solid {border}; "
+            f"border-radius: {max(10, self._theme.chip_radius)}px; }}"
         )
 
     def flash(self) -> None:

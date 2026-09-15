@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 
 from model.report import AIModelConfig
 from service.credential_service import CredentialService
+from service.model_provider_catalog import canonical_model_ids, match_provider, normalize_api_base
 
 SYSTEM_PROMPT = """你是一名专业的工作周报整理助手。
 
@@ -89,6 +90,41 @@ class AIService:
         key = raw_key if raw_key is not None else self._credentials.decrypt(config.encrypted_api_key)
         self._chat(config, key, "只回复：ok", max_tokens=32)
         return "模型连接成功"
+
+    def list_models(self, config: AIModelConfig, raw_key: str | None = None) -> list[str]:
+        api_key = raw_key if raw_key is not None else self._credentials.decrypt(config.encrypted_api_key)
+        if not api_key.strip():
+            raise AIClientError("请先填写 Token")
+        base = normalize_api_base(config.api_base)
+        if not base:
+            raise AIClientError("请先填写 API Base")
+        try:
+            body = self._get(base + "/models", api_key)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            if exc.code in (401, 403):
+                raise AIClientError("Token 无效或没有模型列表权限") from exc
+            if exc.code in (404, 405):
+                raise AIClientError("该服务商不支持模型列表接口") from exc
+            raise AIClientError(self._format_http_error(exc.code, detail)) from exc
+        except URLError as exc:
+            raise AIClientError(f"连接超时或无法访问\n{exc.reason}") from exc
+        try:
+            data = body["data"]
+            if not isinstance(data, list):
+                raise TypeError("data")
+            model_ids = [item["id"] for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)]
+            if len(model_ids) != len(data):
+                raise TypeError("id")
+            provider_id = config.provider if config.provider != "openai-compatible" else match_provider(base)
+            result = canonical_model_ids(provider_id, model_ids)
+            if not result:
+                raise AIClientError("服务商未返回可用模型")
+            return result
+        except AIClientError:
+            raise
+        except (KeyError, TypeError):
+            raise AIClientError("模型列表返回格式无法解析") from None
 
     def generate_report(self, config: AIModelConfig, user_prompt: str) -> str:
         key = self._credentials.decrypt(config.encrypted_api_key)
@@ -184,6 +220,11 @@ class AIService:
             method="POST",
         )
         with urlopen(request, timeout=60) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def _get(self, url: str, api_key: str) -> dict:
+        request = Request(url, headers={"Authorization": f"Bearer {api_key}"}, method="GET")
+        with urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
 
     def _extract_text(self, body: dict) -> str:

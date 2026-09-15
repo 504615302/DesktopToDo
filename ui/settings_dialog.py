@@ -32,6 +32,10 @@ class SettingsDialog(QDialog):
         self._settings = settings
         self._selected_theme = settings.theme
         self._drag_offset: QPoint | None = None
+        self._section_labels: list[QLabel] = []
+        self._hint_labels: list[QLabel] = []
+        self._row_labels: list[QLabel] = []
+        self._toggle_checks: list[QCheckBox] = []
         self.setWindowTitle("设置")
         self.setModal(True)
         self.setMinimumWidth(400)
@@ -44,30 +48,35 @@ class SettingsDialog(QDialog):
         layout.setSpacing(12)
 
         header = QHBoxLayout()
-        heading = QLabel("设置")
-        heading.setStyleSheet("font-size: 17px; font-weight: 600;")
-        close_btn = IconButton("close", theme.text_muted, "关闭", 28, 14)
-        close_btn.clicked.connect(self.reject)
-        header.addWidget(heading)
+        self.heading = QLabel("设置")
+        self.close_btn = IconButton("close", theme.text_muted, "关闭", 28, 14)
+        self.close_btn.clicked.connect(self.reject)
+        header.addWidget(self.heading)
         header.addStretch()
-        header.addWidget(close_btn)
+        header.addWidget(self.close_btn)
         layout.addLayout(header)
 
         body = QWidget()
+        body.setObjectName("settingsBody")
+        body.setStyleSheet("QWidget#settingsBody { background: transparent; }")
+        self._body = body
         body_layout = QVBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 4, 0)
         body_layout.setSpacing(12)
 
         self.lock_check = QCheckBox("锁定窗口位置")
         self.lock_check.setChecked(settings.lock_position)
+        self._toggle_checks.append(self.lock_check)
         body_layout.addWidget(self.lock_check)
 
         self.auto_start_check = QCheckBox("开机自动启动")
         self.auto_start_check.setChecked(settings.auto_start)
+        self._toggle_checks.append(self.auto_start_check)
         body_layout.addWidget(self.auto_start_check)
 
         self.top_check = QCheckBox("窗口始终置顶")
         self.top_check.setChecked(settings.always_on_top)
+        self._toggle_checks.append(self.top_check)
         body_layout.addWidget(self.top_check)
 
         body_layout.addWidget(self._label("主题风格"))
@@ -118,13 +127,13 @@ class SettingsDialog(QDialog):
 
         hint = QLabel("锁定后窗口固定在桌面位置。置顶会盖住其他应用，默认关闭。")
         hint.setWordWrap(True)
-        hint.setStyleSheet(f"color: {theme.text_muted}; font-size: 12px;")
+        self._hint_labels.append(hint)
         body_layout.addWidget(hint)
 
         body_layout.addWidget(self._label("全局快捷键"))
         hotkey_hint = QLabel("点击后按下新组合键，需包含 Ctrl 或 Alt。Esc 取消。")
         hotkey_hint.setWordWrap(True)
-        hotkey_hint.setStyleSheet(f"color: {theme.text_muted}; font-size: 12px;")
+        self._hint_labels.append(hotkey_hint)
         body_layout.addWidget(hotkey_hint)
         self.hotkey_todo = HotkeyEdit(settings.hotkey_todo)
         self.hotkey_memo = HotkeyEdit(settings.hotkey_memo)
@@ -140,14 +149,14 @@ class SettingsDialog(QDialog):
         ):
             row = QHBoxLayout()
             name = QLabel(caption)
-            name.setStyleSheet(f"color: {theme.text};")
+            self._row_labels.append(name)
             row.addWidget(name, 1)
             row.addWidget(editor)
             body_layout.addLayout(row)
 
         newline_hint = QLabel("备忘录与问答支持换行：Enter 换行，Ctrl+Enter 保存或发送。")
         newline_hint.setWordWrap(True)
-        newline_hint.setStyleSheet(f"color: {theme.text_muted}; font-size: 12px;")
+        self._hint_labels.append(newline_hint)
         body_layout.addWidget(newline_hint)
 
         self.ai_btn = QPushButton("AI 模型")
@@ -180,6 +189,7 @@ class SettingsDialog(QDialog):
         buttons.addWidget(cancel)
         buttons.addWidget(save)
         layout.addLayout(buttons)
+        self.apply_theme(theme)
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
@@ -208,12 +218,41 @@ class SettingsDialog(QDialog):
 
     def _label(self, text: str) -> QLabel:
         label = QLabel(text)
-        label.setStyleSheet(f"color: {self._theme.text_secondary}; font-size: 12px; font-weight: 600;")
+        self._section_labels.append(label)
         return label
+
+    def apply_theme(self, theme: Theme) -> None:
+        self._theme = theme
+        self.heading.setStyleSheet(f"font-size: 17px; font-weight: 700; color: {theme.text};")
+        self.close_btn.set_color(theme.text_secondary)
+        for label in self._section_labels:
+            label.setStyleSheet(
+                f"color: {theme.text_secondary}; font-size: 12px; font-weight: 600;"
+            )
+        for label in self._hint_labels:
+            label.setStyleSheet(f"color: {theme.text_secondary}; font-size: 12px;")
+        for label in self._row_labels:
+            label.setStyleSheet(f"color: {theme.text};")
+        for check in self._toggle_checks:
+            check.setStyleSheet(
+                f"""
+                QCheckBox {{
+                    background: {theme.surface}; color: {theme.text};
+                    border: 1px solid {theme.separator}; border-radius: {max(10, theme.chip_radius)}px;
+                    min-height: 40px; padding: 0 12px; font-weight: 500;
+                }}
+                QCheckBox:hover {{ background: {theme.hover}; }}
+                QCheckBox:checked {{ border-color: {theme.accent}; background: {theme.accent_soft}; }}
+                QCheckBox::indicator {{ width: 17px; height: 17px; margin-right: 8px; }}
+                """
+            )
+        self.support_btn.setIcon(stroke_icon("heart", theme.accent, 16))
+        self.update()
 
     def _select_theme(self, name: str) -> None:
         self._selected_theme = name
         self._refresh_theme_buttons()
+        self.apply_theme(resolve_theme(name))
         self.theme_previewed.emit(name)
 
     def _refresh_theme_buttons(self) -> None:

@@ -34,9 +34,13 @@ def test_window_builds() -> None:
         assert "窗口冒烟测试" in titles
         assert window.stack.count() == 6
         window.set_page("tools")
+        assert window._page_anim.duration() == 160
         assert not window.nav._page_icon("nav_tools").isNull()
         assert window.tools_page._current == "json"
         assert window.tools_page.stack.count() == 7
+        window._preview_theme("business")
+        assert window._theme_anim.duration() == 180
+        assert window.theme.name == "business"
         window.tools_page._set_tool("alias")
         window.tools_page._set_tool("almanac")
         assert "宜" in window.tools_page._almanac_out.toPlainText()

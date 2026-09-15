@@ -23,6 +23,56 @@ from service.settings_service import SettingsService
 from service.task_service import TaskService
 
 
+def test_model_discovery() -> None:
+    from model.report import AIModelConfig
+    from service.ai_service import AIClientError, AIService
+
+    class StubAIService(AIService):
+        def __init__(self):
+            super().__init__(CredentialService())
+            self.url = ""
+            self.key = ""
+            self.response: dict = {"data": [{"id": "z"}, {"id": "a"}, {"id": "a"}]}
+
+        def _get(self, url: str, api_key: str) -> dict:
+            self.url = url
+            self.key = api_key
+            return self.response
+
+    service = StubAIService()
+    config = AIModelConfig(name="models", api_base="https://api.example.test/v1/", model_name="example")
+    assert service.list_models(config, "test-key") == ["a", "z"]
+    assert service.url == "https://api.example.test/v1/models"
+    assert service.key == "test-key"
+
+    service.response = {"data": [{"id": "models/gemini-3.8-flash"}]}
+    gemini = AIModelConfig(
+        name="gemini",
+        provider="google-gemini",
+        api_base="https://generativelanguage.googleapis.com/v1beta/openai/",
+        model_name="gemini-3.8-flash",
+    )
+    assert service.list_models(gemini, "test-key") == ["gemini-3.8-flash"]
+
+    try:
+        service.list_models(AIModelConfig(name="empty", api_base="", model_name="example"), "test-key")
+        raise AssertionError("blank base should fail")
+    except AIClientError as exc:
+        assert str(exc) == "请先填写 API Base"
+    try:
+        service.list_models(config, "")
+        raise AssertionError("blank key should fail")
+    except AIClientError as exc:
+        assert str(exc) == "请先填写 Token"
+
+    service.response = {"data": [{"name": "missing-id"}]}
+    try:
+        service.list_models(config, "test-key")
+        raise AssertionError("malformed list should fail")
+    except AIClientError as exc:
+        assert str(exc) == "模型列表返回格式无法解析"
+
+
 def test_user_data_root_in_dev() -> None:
     from app_paths import exe_dir, is_portable, user_data_root
 
@@ -198,4 +248,5 @@ def test_task_and_settings_roundtrip() -> None:
 if __name__ == "__main__":
     test_user_data_root_in_dev()
     test_task_and_settings_roundtrip()
+    test_model_discovery()
     print("service ok")

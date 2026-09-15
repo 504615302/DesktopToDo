@@ -14,6 +14,7 @@ from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
+    QGraphicsOpacityEffect,
     QLabel,
     QLineEdit,
     QMenu,
@@ -62,6 +63,8 @@ class MainWindow(CardWindow):
         self.theme: Theme = resolve_theme(self.settings.theme)
         self._really_quit = False
         self._alert_anim: QPropertyAnimation | None = None
+        self._page_anim: QPropertyAnimation | None = None
+        self._theme_anim: QPropertyAnimation | None = None
         self._alert_origin: QPoint | None = None
         self._hotkeys: HotkeyService | None = None
         self._hotkeys_paused = False
@@ -91,8 +94,8 @@ class MainWindow(CardWindow):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(MARGIN + 14, MARGIN + 8, MARGIN + 14, MARGIN + 10)
-        root.setSpacing(6)
+        root.setContentsMargins(MARGIN + 14, MARGIN + 8, MARGIN + 14, MARGIN + 14)
+        root.setSpacing(8)
 
         self.title_bar = TitleBar(self.theme)
         self.title_bar.set_date(datetime.now().strftime("%m-%d"))
@@ -139,18 +142,24 @@ class MainWindow(CardWindow):
         self.stack.addWidget(self.report_page)
         self.stack.addWidget(self.chat_page)
         self.stack.addWidget(self.tools_page)
-        root.addWidget(self.stack, 1)
+        self.content_shell = QWidget()
+        self.content_shell.setObjectName("contentShell")
+        content_layout = QVBoxLayout(self.content_shell)
+        content_layout.setContentsMargins(12, 12, 12, 10)
+        content_layout.setSpacing(0)
+        content_layout.addWidget(self.stack, 1)
+        root.addWidget(self.content_shell, 1)
         self.chat_page.layout_changed.connect(self._fit_compact_size)
 
         add_row = QWidget()
         add_layout = QHBoxLayout(add_row)
-        add_layout.setContentsMargins(10, 0, 10, 0)
+        add_layout.setContentsMargins(12, 0, 12, 0)
         add_layout.setSpacing(8)
         self._plus_icon = QLabel()
         self._plus_icon.setFixedSize(18, 18)
         self.quick_add = QLineEdit()
         self.quick_add.setPlaceholderText(self.theme.placeholder)
-        self.quick_add.setFixedHeight(40)
+        self.quick_add.setFixedHeight(46)
         self.quick_add.returnPressed.connect(self._on_quick_add)
         add_layout.addWidget(self._plus_icon)
         add_layout.addWidget(self.quick_add, 1)
@@ -159,6 +168,7 @@ class MainWindow(CardWindow):
         root.addWidget(add_row)
         self._style_quick_add()
         self._style_banner()
+        self._style_shell()
 
     def _setup_tray(self) -> None:
         self.tray = QSystemTrayIcon(app_icon(), self)
@@ -289,6 +299,7 @@ class MainWindow(CardWindow):
         self.tools_page.apply_theme(self.theme)
         self._style_quick_add()
         self._style_banner()
+        self._style_shell()
         self._sync_quick_add_mode()
         self.apply_flags(self.settings.always_on_top)
         if self._hotkeys is not None and not self._hotkeys_paused:
@@ -318,13 +329,22 @@ class MainWindow(CardWindow):
             """
         )
 
+    def _style_shell(self) -> None:
+        self.content_shell.setStyleSheet(
+            f"#contentShell {{ background: {self.theme.content_bg}; "
+            f"border: 1px solid {self.theme.separator}; border-radius: 16px; }}"
+        )
+
     def set_page(self, key: str) -> None:
         mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3, "chat": 4, "tools": 5}
         index = mapping.get(key, 0)
         key = list(mapping.keys())[index]
         if self._compact and key != "chat":
             self._exit_compact()
+        changed = self.stack.currentIndex() != index
         self.stack.setCurrentIndex(index)
+        if changed and not self._compact:
+            self._fade_widget(self.stack.currentWidget(), 160, "_page_anim")
         self.nav.set_page(key)
         self.settings_service.update(current_page=key)
         self.settings = self.settings_service.settings
@@ -417,14 +437,16 @@ class MainWindow(CardWindow):
             return
         margins = self.layout().contentsMargins()
         spacing = self.layout().spacing()
+        content_margins = self.content_shell.layout().contentsMargins()
+        content_height = content_margins.top() + content_margins.bottom() + self.chat_page.compact_height()
         needed = (
             margins.top()
             + margins.bottom()
             + self.title_bar.height()
             + spacing
-            + self.chat_page.compact_height()
+            + content_height
         )
-        min_h = margins.top() + margins.bottom() + self.title_bar.height() + spacing + 36
+        min_h = margins.top() + margins.bottom() + self.title_bar.height() + spacing + content_margins.top() + content_margins.bottom() + 52
         max_h = min_h + spacing + 280 + 24
         height = min(max(int(needed), int(min_h)), int(max_h))
         geo = self.geometry()
@@ -576,6 +598,27 @@ class MainWindow(CardWindow):
     def _preview_theme(self, name: str) -> None:
         self.settings.theme = name
         self.apply_appearance()
+        self._fade_widget(self.content_shell, 180, "_theme_anim")
+
+    def _fade_widget(self, widget: QWidget, duration: int, target: str) -> None:
+        previous = getattr(self, target, None)
+        if previous is not None:
+            previous.stop()
+        effect = QGraphicsOpacityEffect(widget)
+        widget.setGraphicsEffect(effect)
+        animation = QPropertyAnimation(effect, b"opacity", self)
+        animation.setDuration(duration)
+        animation.setStartValue(0.58)
+        animation.setEndValue(1.0)
+        animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def clear_effect() -> None:
+            if widget.graphicsEffect() is effect:
+                widget.setGraphicsEffect(None)
+
+        animation.finished.connect(clear_effect)
+        setattr(self, target, animation)
+        animation.start()
 
     def on_reminder(self, task: Task) -> None:
         self.show_from_tray()

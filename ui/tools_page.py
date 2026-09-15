@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -265,16 +266,21 @@ class ToolsPage(QWidget):
             layout.addWidget(editor, 1)
         for widget in extra:
             layout.addWidget(widget, 1)
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(6)
-        for label, slot in actions:
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
+        columns = 3 if len(actions) <= 3 else 2
+        for index, (label, slot) in enumerate(actions):
             button = QPushButton(label)
             button.setCursor(Qt.PointingHandCursor)
-            button.setFixedHeight(30)
+            button.setMinimumHeight(36)
+            button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             button.clicked.connect(slot)
-            row.addWidget(button)
-        layout.addLayout(row)
+            grid.addWidget(button, index // columns, index % columns)
+        for column in range(columns):
+            grid.setColumnStretch(column, 1)
+        layout.addLayout(grid)
         return page
 
     def _set_tool(self, key: str) -> None:
