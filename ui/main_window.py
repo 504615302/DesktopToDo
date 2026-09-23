@@ -703,15 +703,13 @@ class MainWindow(CardWindow):
         self.quick_add.selectAll()
 
     def quick_memo_from_tray(self) -> None:
-        self.show_from_tray()
-        dialog = QuickInputDialog(self.theme, "快速记录", "输入备忘内容", self)
+        dialog = QuickInputDialog(self.theme, "快速记录", "输入备忘内容")
         if dialog.exec() != QuickInputDialog.DialogCode.Accepted:
             return
         text = dialog.text()
         if not text:
             return
         self.ctx.memos.add_memo(text)
-        self.set_page("memo")
         self.reload_all()
 
     def open_report(self) -> None:
