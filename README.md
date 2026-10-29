@@ -12,8 +12,9 @@ Windows 桌面待办卡片：待办、备忘、AI 周报和问答。关闭后进
 | --- | --- |
 | **DesktopTODO.exe** | 绿色版，下载后双击就能用 |
 | **DesktopToDo-Setup.exe** | 安装包，写入开始菜单，可选桌面图标 |
+| **DesktopToDo-macos-arm64-v1.1.5.tar.gz** | macOS Apple Silicon 版本 |
 
-系统要求：Windows 10 / 11 64 位。
+系统要求：Windows 10 / 11 64 位；macOS 12 及以上（Apple Silicon）。
 
 ### 绿色版
 
@@ -29,6 +30,15 @@ Windows 桌面待办卡片：待办、备忘、AI 周报和问答。关闭后进
 4. 数据和配置在 `%LOCALAPPDATA%\DesktopToDo\`
 
 卸载：Windows「已安装的应用」里卸载即可。卸载不会删除你的待办数据。
+
+### macOS Apple Silicon
+
+1. 下载 `DesktopToDo-macos-arm64-v1.1.5.tar.gz`
+2. 解压后把 `DesktopTODO.app` 拖到「应用程序」
+3. 首次打开如被 Gatekeeper 拦截，先右键 `DesktopTODO.app` 选择「打开」
+4. 任务和设置保存在 `~/Library/Application Support/DesktopToDo/`
+
+当前 macOS 包使用 ad-hoc 签名，未做 Apple Developer ID 公证。
 
 ## 开发运行
 
@@ -54,7 +64,15 @@ dist\DesktopTODO.exe          绿色版
 dist\DesktopToDo-Setup.exe    安装包（需已安装 Inno Setup）
 ```
 
-打 GitHub Release：把 `v1.1.2` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
+在 Apple Silicon Mac 上执行：
+
+```bash
+bash scripts/build_macos_arm64.sh
+```
+
+生成 `dist/DesktopToDo-macos-arm64-v1.1.5.tar.gz`。
+
+打 GitHub Release：把 `v1.1.5` 这类标签推到仓库，Actions 会编译并挂到该 Release 上。
 
 ## 使用说明
 
@@ -65,8 +83,10 @@ dist\DesktopToDo-Setup.exe    安装包（需已安装 Inno Setup）
 | 编辑任务 | 双击或右键编辑 |
 | 备忘 | 备忘页输入后按 Enter 保存 |
 | 问答 | 问答页提问；折叠窗口后只留输入框 |
-| 小工具 | 底部「工具」：JSON、翻译、时间戳、编码、哈希、变量别名、老黄历 |
+| 小工具 | 底部「工具」：JSON、翻译、时间戳、编码、哈希、变量别名、老黄历、本地视频 |
 | 置顶 / 主题 / 设置 | 标题栏按钮 |
+| 悬浮显示 | 设置里开启「鼠标悬浮显示窗口内容」，鼠标离开后窗口保持透明 |
+| 影音模式 | 播放栏保留进度、播放/暂停、影音模式和设置；音量等在「播放设置」弹框中调整 |
 | 一键隐藏 | 默认 `Ctrl+Alt+H`，设置里可改；再按一次唤出 |
 | 退出 | 托盘菜单「退出」 |
 

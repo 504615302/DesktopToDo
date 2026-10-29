@@ -10,7 +10,7 @@ from PySide6.QtCore import (
     QTimer,
     Qt,
 )
-from PySide6.QtGui import QAction, QGuiApplication, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QCursor, QGuiApplication, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -52,6 +52,8 @@ from ui.todo_page import TodoPage
 from ui.tools_page import ToolsPage
 from version import APP_DISPLAY_NAME
 
+HOVER_IDLE_OPACITY = 0.03
+
 
 class MainWindow(CardWindow):
     def __init__(self, ctx: AppContext):
@@ -71,6 +73,8 @@ class MainWindow(CardWindow):
         self._shortcuts: list[QShortcut] = []
         self._fallback_shortcuts: list[QShortcut] = []
         self._compact = False
+        self._cinema_mode = False
+        self._banner_was_visible = False
         self._full_geometry = None
         self._page_before_compact = "today"
         super().__init__(self.theme, resizable=True)
@@ -127,6 +131,7 @@ class MainWindow(CardWindow):
         self.report_page = ReportPage(self.theme, self.ctx)
         self.chat_page = ChatPage(self.theme, self.ctx)
         self.tools_page = ToolsPage(self.theme, self.ctx)
+        self.tools_page.cinema_mode_changed.connect(self._set_cinema_mode)
         for page in (self.today_page, self.todo_page):
             page.task_toggled.connect(self._on_toggled)
             page.edit_requested.connect(self.edit_task)
@@ -286,7 +291,7 @@ class MainWindow(CardWindow):
         self.set_theme(self.theme)
         self.set_locked(self.settings.lock_position)
         QApplication.instance().setStyleSheet(build_stylesheet(self.theme))
-        self.setWindowOpacity(self.settings.opacity)
+        self._apply_window_opacity()
         self.title_bar.apply_theme(self.theme)
         self.title_bar.set_locked(self.settings.lock_position)
         self.title_bar.set_pinned(self.settings.always_on_top)
@@ -330,6 +335,11 @@ class MainWindow(CardWindow):
         )
 
     def _style_shell(self) -> None:
+        if self._cinema_mode:
+            self.content_shell.setStyleSheet(
+                "#contentShell { background: transparent; border: none; }"
+            )
+            return
         self.content_shell.setStyleSheet(
             f"#contentShell {{ background: {self.theme.content_bg}; "
             f"border: 1px solid {self.theme.separator}; border-radius: 16px; }}"
@@ -339,6 +349,8 @@ class MainWindow(CardWindow):
         mapping = {"today": 0, "todo": 1, "memo": 2, "report": 3, "chat": 4, "tools": 5}
         index = mapping.get(key, 0)
         key = list(mapping.keys())[index]
+        if key != "tools" and self.tools_page.is_cinema_mode():
+            self.tools_page.exit_cinema_mode()
         if self._compact and key != "chat":
             self._exit_compact()
         changed = self.stack.currentIndex() != index
@@ -362,6 +374,56 @@ class MainWindow(CardWindow):
         self.quick_add_row.setVisible(page in {"today", "todo"})
         self.quick_add.setPlaceholderText(self.theme.placeholder)
 
+    def _cursor_in_window(self) -> bool:
+        return self.frameGeometry().contains(QCursor.pos())
+
+    def _apply_window_opacity(self) -> None:
+        self._set_hover_reveal_opacity(
+            not self.settings.hover_reveal or self._cursor_in_window()
+        )
+
+    def _set_hover_reveal_opacity(self, hovered: bool) -> None:
+        if self.settings.hover_reveal and not hovered:
+            self.setWindowOpacity(min(HOVER_IDLE_OPACITY, self.settings.opacity))
+            return
+        self.setWindowOpacity(self.settings.opacity)
+
+    def enterEvent(self, event) -> None:
+        if self.settings.hover_reveal:
+            self._set_hover_reveal_opacity(True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        if self.settings.hover_reveal:
+            self._set_hover_reveal_opacity(False)
+        super().leaveEvent(event)
+
+    def _set_cinema_mode(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if self._cinema_mode == enabled:
+            return
+        if enabled and self._compact:
+            self._exit_compact()
+        self._cinema_mode = enabled
+        root = self.layout()
+        content_layout = self.content_shell.layout()
+        if enabled:
+            self._banner_was_visible = self.banner.isVisible()
+            root.setContentsMargins(MARGIN, MARGIN, MARGIN, MARGIN)
+            content_layout.setContentsMargins(0, 0, 0, 0)
+            self.title_bar.hide()
+            self.banner.hide()
+            self.nav.hide()
+            self.quick_add_row.hide()
+        else:
+            root.setContentsMargins(MARGIN + 14, MARGIN + 8, MARGIN + 14, MARGIN + 14)
+            content_layout.setContentsMargins(12, 12, 12, 10)
+            self.title_bar.show()
+            self.banner.setVisible(self._banner_was_visible)
+            self.nav.show()
+            self._sync_quick_add_mode()
+        self._style_shell()
+
     def toggle_lock(self) -> None:
         self.settings_service.update(lock_position=not self.settings.lock_position)
         self.settings = self.settings_service.settings
@@ -381,6 +443,8 @@ class MainWindow(CardWindow):
     def _enter_compact(self) -> None:
         if self._compact:
             return
+        if self.tools_page.is_cinema_mode():
+            self.tools_page.exit_cinema_mode()
         self._full_geometry = self.geometry()
         self._page_before_compact = self.settings.current_page or "today"
         self._compact = True
@@ -624,7 +688,8 @@ class MainWindow(CardWindow):
         self.show_from_tray()
         self.set_page("todo")
         self.banner.setText(task.reminder_message())
-        self.banner.show()
+        if not self._cinema_mode:
+            self.banner.show()
         QTimer.singleShot(6000, self.banner.hide)
         self.tray.showMessage(APP_DISPLAY_NAME, task.reminder_message(), QSystemTrayIcon.MessageIcon.Information, 5000)
         self.reload_all()
@@ -735,6 +800,7 @@ class MainWindow(CardWindow):
     def quit_app(self) -> None:
         self._really_quit = True
         self._persist_geometry()
+        self.tools_page.entertainment_panel.player.stop()
         if self._hotkeys:
             self._hotkeys.uninstall()
         self.tray.hide()

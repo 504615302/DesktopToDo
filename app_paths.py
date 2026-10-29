@@ -60,6 +60,8 @@ def _can_write(path: Path) -> bool:
 
 
 def is_portable() -> bool:
+    if sys.platform == "darwin" and is_frozen():
+        return False
     root = exe_dir()
     if (root / "portable.txt").exists() or (root / "portable").exists():
         return True
@@ -73,6 +75,10 @@ def is_portable() -> bool:
 def user_data_root() -> Path:
     if is_portable():
         return exe_dir()
+    if sys.platform == "darwin":
+        root = Path.home() / "Library" / "Application Support" / APP_FOLDER
+        root.mkdir(parents=True, exist_ok=True)
+        return root
     local = os.environ.get("LOCALAPPDATA")
     root = Path(local) / APP_FOLDER if local else Path.home() / "AppData" / "Local" / APP_FOLDER
     root.mkdir(parents=True, exist_ok=True)

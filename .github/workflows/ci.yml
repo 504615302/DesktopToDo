@@ -21,3 +21,4 @@ jobs:
         run: |
           python scripts/test_services.py
           python scripts/test_window.py
+          python -m unittest tests.test_credential_service

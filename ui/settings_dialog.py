@@ -79,6 +79,11 @@ class SettingsDialog(QDialog):
         self._toggle_checks.append(self.top_check)
         body_layout.addWidget(self.top_check)
 
+        self.hover_reveal_check = QCheckBox("鼠标悬浮显示窗口内容")
+        self.hover_reveal_check.setChecked(settings.hover_reveal)
+        self._toggle_checks.append(self.hover_reveal_check)
+        body_layout.addWidget(self.hover_reveal_check)
+
         body_layout.addWidget(self._label("主题风格"))
         self._theme_buttons: dict[str, QPushButton] = {}
         theme_grid = QGridLayout()
@@ -268,6 +273,7 @@ class SettingsDialog(QDialog):
             "always_on_top": self.top_check.isChecked(),
             "lock_position": self.lock_check.isChecked(),
             "auto_start": self.auto_start_check.isChecked(),
+            "hover_reveal": self.hover_reveal_check.isChecked(),
             "theme": self._selected_theme,
             "opacity": self.opacity_slider.value() / 100,
             "hotkey_todo": self.hotkey_todo.sequence(),

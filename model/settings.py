@@ -12,6 +12,7 @@ class AppSettings:
     always_on_top: bool = False
     lock_position: bool = False
     auto_start: bool = False
+    hover_reveal: bool = False
     opacity: float = 0.95
     theme: str = "minimal"
     window_x: Optional[int] = None
@@ -41,6 +42,7 @@ class AppSettings:
         if settings.theme not in VALID_THEMES:
             settings.theme = "minimal"
         settings.always_on_top = bool(settings.always_on_top)
+        settings.hover_reveal = bool(settings.hover_reveal)
         settings.compact_mode = bool(settings.compact_mode)
         settings.window_width = max(360, int(settings.window_width))
         settings.window_height = max(400, int(settings.window_height))

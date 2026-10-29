@@ -39,6 +39,7 @@ from service.tools_service import (
     split_identifier,
     time_snapshot,
 )
+from ui.entertainment_panel import EntertainmentPanel
 from ui.page_utils import style_chip
 from ui.styles import Theme
 
@@ -50,6 +51,7 @@ TOOLS = [
     ("hash", "哈希"),
     ("alias", "别名"),
     ("almanac", "黄历"),
+    ("entertainment", "娱乐"),
 ]
 
 
@@ -71,6 +73,8 @@ class _AIWorker(QObject):
 
 
 class ToolsPage(QWidget):
+    cinema_mode_changed = Signal(bool)
+
     def __init__(self, theme: Theme, ctx: AppContext, parent=None):
         super().__init__(parent)
         self._theme = theme
@@ -79,8 +83,10 @@ class ToolsPage(QWidget):
         self._thread: QThread | None = None
         self._worker: _AIWorker | None = None
         self._tool_buttons: dict[str, QPushButton] = {}
+        self._cinema_mode = False
 
-        chip_row = QGridLayout()
+        self.chip_bar = QWidget()
+        chip_row = QGridLayout(self.chip_bar)
         chip_row.setContentsMargins(0, 0, 0, 0)
         chip_row.setHorizontalSpacing(6)
         chip_row.setVerticalSpacing(6)
@@ -122,6 +128,8 @@ class ToolsPage(QWidget):
         self._almanac_out = self._text("宜忌、干支、方位")
         self._almanac_out.setReadOnly(True)
         self._almanac_out.setPlainText(almanac_for(date.today()))
+        self.entertainment_panel = EntertainmentPanel(self._theme)
+        self.entertainment_panel.cinema_mode_changed.connect(self._on_cinema_mode_changed)
 
         self.stack.addWidget(
             self._panel(
@@ -218,6 +226,7 @@ class ToolsPage(QWidget):
                 extra=(almanac_form,),
             )
         )
+        self.stack.addWidget(self.entertainment_panel)
 
         self.status = QLabel()
         self.status.hide()
@@ -225,7 +234,7 @@ class ToolsPage(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(8)
-        root.addLayout(chip_row)
+        root.addWidget(self.chip_bar)
         root.addWidget(self.stack, 1)
         root.addWidget(self.status)
         self._apply_styles()
@@ -234,10 +243,23 @@ class ToolsPage(QWidget):
     def apply_theme(self, theme: Theme) -> None:
         self._theme = theme
         self._apply_styles()
+        self.entertainment_panel.apply_theme(theme)
         self._set_tool(self._current)
 
     def _apply_styles(self) -> None:
         self.status.setStyleSheet(f"color: {self._theme.text_secondary}; font-size: 12px;")
+
+    def is_cinema_mode(self) -> bool:
+        return self._cinema_mode
+
+    def exit_cinema_mode(self) -> None:
+        self.entertainment_panel.set_cinema_mode(False)
+
+    def _on_cinema_mode_changed(self, enabled: bool) -> None:
+        self._cinema_mode = enabled
+        self.chip_bar.setVisible(not enabled)
+        self.status.setVisible(bool(self.status.text()) and not enabled)
+        self.cinema_mode_changed.emit(enabled)
 
     def _text(self, placeholder: str) -> QPlainTextEdit:
         edit = QPlainTextEdit()
@@ -285,6 +307,9 @@ class ToolsPage(QWidget):
 
     def _set_tool(self, key: str) -> None:
         keys = [item[0] for item in TOOLS]
+        if self._current == "entertainment" and key != "entertainment":
+            self.exit_cinema_mode()
+            self.entertainment_panel.pause()
         self._current = key if key in self._tool_buttons else "json"
         self.stack.setCurrentIndex(keys.index(self._current))
         for name, button in self._tool_buttons.items():
@@ -293,7 +318,7 @@ class ToolsPage(QWidget):
 
     def _set_status(self, text: str) -> None:
         self.status.setText(text)
-        self.status.setVisible(bool(text))
+        self.status.setVisible(bool(text) and not self._cinema_mode)
 
     def _copy(self, text: str) -> None:
         if not text.strip():
