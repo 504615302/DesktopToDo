@@ -29,11 +29,16 @@ jobs:
 
       - name: Test
         env:
+          PYTHONUTF8: "1"
           QT_QPA_PLATFORM: offscreen
         run: |
           python scripts/test_services.py
           python scripts/test_window.py
           python -m unittest tests.test_credential_service
+          python -m unittest tests.test_novel_panel
+          python -m unittest tests.test_entertainment_keyboard
+          python -m unittest tests.test_dialog_opacity
+          python -m unittest tests.test_theme_settings
 
       - name: Build Apple Silicon bundle
         run: bash scripts/build_macos_arm64.sh
@@ -63,10 +68,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Test
+        env:
+          PYTHONUTF8: "1"
         run: |
           python scripts/test_services.py
           python scripts/test_window.py
           python -m unittest tests.test_credential_service
+          python -m unittest tests.test_novel_panel
+          python -m unittest tests.test_entertainment_keyboard
+          python -m unittest tests.test_dialog_opacity
+          python -m unittest tests.test_theme_settings
 
       - name: Build EXE
         run: |

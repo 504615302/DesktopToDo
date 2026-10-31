@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, fields
 from typing import Any, Optional
 
-VALID_THEMES = {"cute", "business", "minimal", "tech"}
-_LEGACY_THEME = {"light": "minimal", "dark": "business", "system": "minimal"}
+VALID_THEMES = {"latest", "meadow", "cute", "business", "minimal", "tech"}
+_LEGACY_THEME = {"light": "minimal", "dark": "business", "system": "latest"}
 
 
 @dataclass
@@ -14,7 +14,7 @@ class AppSettings:
     auto_start: bool = False
     hover_reveal: bool = False
     opacity: float = 0.95
-    theme: str = "minimal"
+    theme: str = "latest"
     window_x: Optional[int] = None
     window_y: Optional[int] = None
     window_width: int = 400
@@ -40,7 +40,7 @@ class AppSettings:
         settings.opacity = min(1.0, max(0.0, float(settings.opacity)))
         settings.theme = _LEGACY_THEME.get(settings.theme, settings.theme)
         if settings.theme not in VALID_THEMES:
-            settings.theme = "minimal"
+            settings.theme = "latest"
         settings.always_on_top = bool(settings.always_on_top)
         settings.hover_reveal = bool(settings.hover_reveal)
         settings.compact_mode = bool(settings.compact_mode)

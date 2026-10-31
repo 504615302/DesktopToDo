@@ -93,11 +93,18 @@ def style_nav_button(button, theme: Theme, active: bool) -> None:
 
 
 def style_quick_add(row: QWidget, theme: Theme) -> None:
+    edge_color = theme.success if theme.name == "meadow" else theme.accent
+    left_border = (
+        f"3px solid {edge_color}"
+        if theme.name in {"latest", "meadow"}
+        else f"1px solid {theme.separator}"
+    )
     row.setStyleSheet(
         f"""
         QWidget#quickAdd {{
             background: {theme.surface};
             border: 1px solid {theme.separator};
+            border-left: {left_border};
             border-radius: {max(12, theme.chip_radius)}px;
         }}
         QLineEdit {{

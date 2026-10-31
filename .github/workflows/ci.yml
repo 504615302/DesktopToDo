@@ -18,7 +18,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Test
+        env:
+          PYTHONUTF8: "1"
         run: |
           python scripts/test_services.py
           python scripts/test_window.py
           python -m unittest tests.test_credential_service
+          python -m unittest tests.test_novel_panel
+          python -m unittest tests.test_entertainment_keyboard
+          python -m unittest tests.test_dialog_opacity
+          python -m unittest tests.test_theme_settings

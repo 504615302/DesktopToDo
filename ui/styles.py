@@ -42,8 +42,8 @@ class Theme:
 CUTE = Theme(
     name="cute",
     label="可爱风",
-    title="桌面代办 ♪",
-    placeholder="✨  记一件小事，按 Enter 保存",
+    title="桌面代办",
+    placeholder="记一件小事，按 Enter 保存",
     font_family='"Microsoft YaHei UI", "Segoe UI", sans-serif',
     font_size=13,
     radius=22,
@@ -179,14 +179,86 @@ TECH = Theme(
     primary_text="#041016",
 )
 
+LATEST = Theme(
+    name="latest",
+    label="最新·墨金",
+    title="桌面代办",
+    placeholder="写下一件最重要的事，按 Enter 保存",
+    font_family='"HarmonyOS Sans SC", "MiSans", "Source Han Sans SC", "Microsoft YaHei UI", sans-serif',
+    font_size=13,
+    radius=12,
+    chip_radius=8,
+    check_radius=4,
+    bg="#F6F1E7",
+    surface="#FFFDF7",
+    hover="#F0E5D2",
+    border="#D8C7A8",
+    text="#25211B",
+    text_secondary="#6E6251",
+    text_muted="#9C8F7C",
+    accent="#B75C2B",
+    accent_soft="#F4D9C6",
+    danger="#B3363D",
+    success="#48774B",
+    completed="#A79A85",
+    shadow="#C9B58F",
+    input_bg="#FFFDF7",
+    chip_active="#E9DCC7",
+    banner_bg="#25211B",
+    banner_text="#F4D9C6",
+    chrome="#EFE7D8",
+    content_bg="#F9F5EC",
+    separator="#E0D4BE",
+    focus_ring="#48774B",
+    nav_active="#FFF8E8",
+    primary_text="#FFF8E8",
+)
+
+MEADOW = Theme(
+    name="meadow",
+    label="自然·松烟",
+    title="桌面代办",
+    placeholder="种下一件今天的重要事，按 Enter 保存",
+    font_family='"HarmonyOS Sans SC", "MiSans", "Source Han Sans SC", "Microsoft YaHei UI", sans-serif',
+    font_size=13,
+    radius=15,
+    chip_radius=9,
+    check_radius=5,
+    bg="#F1F4EA",
+    surface="#FCFDF9",
+    hover="#E5EBDD",
+    border="#CBD5C0",
+    text="#24312A",
+    text_secondary="#61756A",
+    text_muted="#8A9A8F",
+    accent="#C05B2F",
+    accent_soft="#F2DFD1",
+    danger="#B23A48",
+    success="#417B52",
+    completed="#ADBAAE",
+    shadow="#9AAA9A",
+    input_bg="#FFFFFF",
+    chip_active="#DDE8DA",
+    banner_bg="#2E4636",
+    banner_text="#F4F0E4",
+    chrome="#E9EFE2",
+    content_bg="#F5F7F0",
+    separator="#DAE3D2",
+    focus_ring="#417B52",
+    nav_active="#FFFFFF",
+    primary_text="#FFF9F0",
+)
+
 THEMES = {
+    "latest": LATEST,
+    "meadow": MEADOW,
     "cute": CUTE,
     "business": BUSINESS,
     "minimal": MINIMAL,
     "tech": TECH,
 }
 
-THEME_CHOICES = [(theme.label, theme.name) for theme in (CUTE, BUSINESS, MINIMAL, TECH)]
+THEME_CHOICES = [(theme.label, theme.name) for theme in (LATEST, MEADOW, CUTE, BUSINESS, MINIMAL, TECH)]
 
 _LEGACY_THEME = {
     "light": "minimal",
@@ -197,7 +269,7 @@ _LEGACY_THEME = {
 
 def resolve_theme(mode: str) -> Theme:
     key = _LEGACY_THEME.get(mode, mode)
-    return THEMES.get(key, MINIMAL)
+    return THEMES.get(key, LATEST)
 
 
 def build_stylesheet(theme: Theme) -> str:

@@ -4,7 +4,9 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QPushButton, QSystemTrayIcon
+from PySide6.QtTest import QTest
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -14,7 +16,8 @@ from database.db import Database
 from main import build_context
 from ui.main_window import MainWindow
 from ui.entertainment_panel import EntertainmentSettingsDialog
-from ui.styles import build_stylesheet, resolve_theme
+from ui.novel_panel import split_chapters
+from ui.styles import MEADOW, THEME_CHOICES, build_stylesheet, resolve_theme
 
 
 def test_window_builds() -> None:
@@ -38,7 +41,7 @@ def test_window_builds() -> None:
         assert window._page_anim.duration() == 160
         assert not window.nav._page_icon("nav_tools").isNull()
         assert window.tools_page._current == "json"
-        assert window.tools_page.stack.count() == 8
+        assert window.tools_page.stack.count() == 9
         window._preview_theme("business")
         assert window._theme_anim.duration() == 180
         assert window.theme.name == "business"
@@ -64,11 +67,66 @@ def test_window_builds() -> None:
         settings_popup.close()
         settings_popup.deleteLater()
         window.tools_page._set_tool("alias")
+        novel = window.tools_page.novel_panel
+        novel_text = "第一章 开始\n正文一\n第二章 继续\n正文二"
+        novel._set_novel("测试小说", novel_text, "test")
+        assert novel.chapter_combo.count() == 2
+        assert novel.reader.toPlainText().startswith("第一章")
+        novel.next_button.click()
+        assert novel.reader.toPlainText().startswith("第二章")
+        novel.prev_button.click()
+        assert novel.reader.toPlainText().startswith("第一章")
+        novel.larger_button.click()
+        assert novel._font_size == 18
+        assert split_chapters(novel_text)[0][0] == "第一章 开始"
+        normal_reader_height = novel.reader.height()
+        window.tools_page._set_tool("novel")
+        app.processEvents()
+        QTest.keyClick(window, Qt.Key.Key_Right)
+        assert novel._chapter_index == 1
+        QTest.keyClick(window, Qt.Key.Key_Left)
+        assert novel._chapter_index == 0
+        novel.set_pure_mode(True)
+        app.processEvents()
+        assert window._cinema_mode is True
+        assert window.title_bar.isHidden()
+        assert window.nav.isHidden()
+        assert window.tools_page.chip_bar.isHidden()
+        assert novel.head_bar.isHidden()
+        assert novel.chapter_combo.isHidden()
+        assert novel.smaller_button.isHidden()
+        assert novel.larger_button.isHidden()
+        assert novel.prev_button.isVisible()
+        assert novel.next_button.isVisible()
+        assert novel.pure_button.isVisible()
+        assert not novel.font_row.isHidden()
+        assert novel.font_size_slider.width() >= 120
+        assert novel.pure_button.text() == ""
+        assert novel.pure_button.toolTip() == "退出纯净"
+        assert not novel.pure_button.icon().isNull()
+        assert novel.reader.height() > normal_reader_height
+        novel.set_pure_mode(False)
+        app.processEvents()
+        assert window._cinema_mode is False
+        assert window.title_bar.isVisible()
+        assert window.nav.isVisible()
+        assert window.tools_page.chip_bar.isVisible()
+        assert novel.head_bar.isVisible()
+        assert novel.chapter_combo.isVisible()
+        assert novel.pure_button.toolTip() == "切换纯净模式"
+        novel.set_pure_mode(True)
+        app.processEvents()
         window.tools_page._set_tool("almanac")
+        app.processEvents()
+        assert novel.is_pure_mode() is False
+        assert window._cinema_mode is False
         assert "宜" in window.tools_page._almanac_out.toPlainText()
         window.tools_page._set_tool("entertainment")
         assert window.tools_page.entertainment_panel.play_button.toolTip() == "播放"
         assert not window.tools_page.entertainment_panel.play_button.icon().isNull()
+        initial_volume = window.tools_page.entertainment_panel.audio_output.volume()
+        QTest.keyClick(window, Qt.Key.Key_Up)
+        assert window.tools_page.entertainment_panel.audio_output.volume() > initial_volume
         window.resize(520, 620)
         app.processEvents()
         stage = window.tools_page.entertainment_panel.video_stage
@@ -115,6 +173,17 @@ def test_window_builds() -> None:
         assert abs(window.windowOpacity() - 0.03) < 0.005
         window._set_hover_reveal_opacity(True)
         assert abs(window.windowOpacity() - window.settings.opacity) < 0.005
+        from ui.styles import LATEST
+
+        window._preview_theme("latest")
+        assert window.theme.name == "latest"
+        assert LATEST.accent in window.content_shell.styleSheet()
+        assert "HarmonyOS Sans SC" in LATEST.font_family
+        assert any(value == "meadow" for _label, value in THEME_CHOICES)
+        window._preview_theme("meadow")
+        assert window.theme.name == "meadow"
+        assert MEADOW.success in window.content_shell.styleSheet()
+        assert MEADOW.bg == "#F1F4EA"
         window._set_hover_reveal_opacity(False)
         assert abs(window.windowOpacity() - 0.03) < 0.005
         ctx.settings.update(hover_reveal=False)
@@ -130,7 +199,7 @@ def test_window_builds() -> None:
         app.processEvents()
         assert window._compact is False
         from service.hotkey_service import normalize_hotkey, parse_hotkey, restore_ctrl_letter_key
-        from PySide6.QtCore import QByteArray, QEvent, Qt
+        from PySide6.QtCore import QByteArray, QEvent
         from PySide6.QtGui import QKeyEvent
 
         assert parse_hotkey("Ctrl+Alt+T") is not None

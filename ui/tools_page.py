@@ -40,6 +40,7 @@ from service.tools_service import (
     time_snapshot,
 )
 from ui.entertainment_panel import EntertainmentPanel
+from ui.novel_panel import NovelPanel
 from ui.page_utils import style_chip
 from ui.styles import Theme
 
@@ -52,6 +53,7 @@ TOOLS = [
     ("alias", "别名"),
     ("almanac", "黄历"),
     ("entertainment", "娱乐"),
+    ("novel", "小说"),
 ]
 
 
@@ -130,6 +132,8 @@ class ToolsPage(QWidget):
         self._almanac_out.setPlainText(almanac_for(date.today()))
         self.entertainment_panel = EntertainmentPanel(self._theme)
         self.entertainment_panel.cinema_mode_changed.connect(self._on_cinema_mode_changed)
+        self.novel_panel = NovelPanel(self._theme)
+        self.novel_panel.pure_mode_changed.connect(self._on_pure_mode_changed)
 
         self.stack.addWidget(
             self._panel(
@@ -227,6 +231,7 @@ class ToolsPage(QWidget):
             )
         )
         self.stack.addWidget(self.entertainment_panel)
+        self.stack.addWidget(self.novel_panel)
 
         self.status = QLabel()
         self.status.hide()
@@ -244,6 +249,7 @@ class ToolsPage(QWidget):
         self._theme = theme
         self._apply_styles()
         self.entertainment_panel.apply_theme(theme)
+        self.novel_panel.apply_theme(theme)
         self._set_tool(self._current)
 
     def _apply_styles(self) -> None:
@@ -254,8 +260,15 @@ class ToolsPage(QWidget):
 
     def exit_cinema_mode(self) -> None:
         self.entertainment_panel.set_cinema_mode(False)
+        self.novel_panel.set_pure_mode(False)
 
     def _on_cinema_mode_changed(self, enabled: bool) -> None:
+        self._cinema_mode = enabled
+        self.chip_bar.setVisible(not enabled)
+        self.status.setVisible(bool(self.status.text()) and not enabled)
+        self.cinema_mode_changed.emit(enabled)
+
+    def _on_pure_mode_changed(self, enabled: bool) -> None:
         self._cinema_mode = enabled
         self.chip_bar.setVisible(not enabled)
         self.status.setVisible(bool(self.status.text()) and not enabled)
@@ -310,8 +323,12 @@ class ToolsPage(QWidget):
         if self._current == "entertainment" and key != "entertainment":
             self.exit_cinema_mode()
             self.entertainment_panel.pause()
+        if self._current == "novel" and key != "novel":
+            self.novel_panel.set_pure_mode(False)
         self._current = key if key in self._tool_buttons else "json"
         self.stack.setCurrentIndex(keys.index(self._current))
+        if self._current == "novel":
+            self.novel_panel.reader.setFocus()
         for name, button in self._tool_buttons.items():
             style_chip(button, self._theme, name == self._current)
         self._set_status("")

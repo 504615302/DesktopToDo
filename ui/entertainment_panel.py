@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QUrl, Signal
+from PySide6.QtGui import QCursor
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
     QSlider,
     QSizePolicy,
     QStackedWidget,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -219,6 +221,40 @@ class EntertainmentPanel(QWidget):
 
     def pause(self) -> None:
         self.player.pause()
+
+    def handle_key(self, event) -> bool:
+        key = event.key()
+        if key == Qt.Key.Key_Left:
+            self.adjust_position(-5)
+            return True
+        if key == Qt.Key.Key_Right:
+            self.adjust_position(5)
+            return True
+        if key == Qt.Key.Key_Up:
+            self.adjust_volume(5)
+            return True
+        if key == Qt.Key.Key_Down:
+            self.adjust_volume(-5)
+            return True
+        return False
+
+    def adjust_position(self, delta_seconds: int) -> None:
+        duration = self.player.duration()
+        target = max(0, self.player.position() + delta_seconds * 1000)
+        if duration > 0:
+            target = min(int(duration), target)
+        self.player.setPosition(target)
+        self.position_slider.setValue(target)
+        QToolTip.showText(
+            QCursor.pos(),
+            f"{format_duration(target)} / {format_duration(duration)}",
+            self,
+        )
+
+    def adjust_volume(self, delta_percent: int) -> None:
+        value = max(0, min(100, round(self.audio_output.volume() * 100 + delta_percent)))
+        self._set_volume(value)
+        QToolTip.showText(QCursor.pos(), f"音量 {value}%", self)
 
     def set_cinema_mode(self, enabled: bool) -> None:
         enabled = bool(enabled)

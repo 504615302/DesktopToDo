@@ -5,6 +5,7 @@ from datetime import datetime
 from PySide6.QtCore import (
     QAbstractAnimation,
     QEasingCurve,
+    QEvent,
     QPoint,
     QPropertyAnimation,
     QTimer,
@@ -88,6 +89,7 @@ class MainWindow(CardWindow):
         self._setup_tray()
         self._setup_shortcuts()
         self._setup_reminders()
+        QApplication.instance().installEventFilter(self)
         self.apply_appearance(show=False, reload=False)
         self._restore_geometry()
         self.set_page(self.settings.current_page or "today")
@@ -280,6 +282,24 @@ class MainWindow(CardWindow):
         elif action == "hide":
             self.toggle_hidden()
 
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.Type.KeyPress:
+            app = QApplication.instance()
+            if (
+                app.activeWindow() in {None, self}
+                and app.activeModalWidget() is None
+                and app.activePopupWidget() is None
+                and self.settings.current_page == "tools"
+            ):
+                handled = False
+                if self.tools_page._current == "novel":
+                    handled = self.tools_page.novel_panel.handle_key(event)
+                elif self.tools_page._current == "entertainment":
+                    handled = self.tools_page.entertainment_panel.handle_key(event)
+                if handled:
+                    return True
+        return super().eventFilter(watched, event)
+
     def _setup_reminders(self) -> None:
         self.reminder_service = ReminderService(self.task_service, self)
         self.ctx.reminders = self.reminder_service
@@ -338,6 +358,14 @@ class MainWindow(CardWindow):
         if self._cinema_mode:
             self.content_shell.setStyleSheet(
                 "#contentShell { background: transparent; border: none; }"
+            )
+            return
+        if self.theme.name in {"latest", "meadow"}:
+            edge_color = self.theme.success if self.theme.name == "meadow" else self.theme.accent
+            self.content_shell.setStyleSheet(
+                f"#contentShell {{ background: {self.theme.content_bg}; "
+                f"border: 1px solid {self.theme.separator}; "
+                f"border-left: 3px solid {edge_color}; border-radius: 14px; }}"
             )
             return
         self.content_shell.setStyleSheet(
@@ -801,6 +829,7 @@ class MainWindow(CardWindow):
         self._really_quit = True
         self._persist_geometry()
         self.tools_page.entertainment_panel.player.stop()
+        QApplication.instance().removeEventFilter(self)
         if self._hotkeys:
             self._hotkeys.uninstall()
         self.tray.hide()
@@ -809,6 +838,7 @@ class MainWindow(CardWindow):
     def closeEvent(self, event) -> None:
         if self._really_quit:
             self._persist_geometry()
+            QApplication.instance().removeEventFilter(self)
             if self._hotkeys:
                 self._hotkeys.uninstall()
             event.accept()

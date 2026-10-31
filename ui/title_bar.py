@@ -117,10 +117,16 @@ class TitleBar(QWidget):
         self.set_locked(self._locked)
         self.set_pinned(self._pinned)
         self.set_compact(self._compact)
+        title_rule = (
+            f"#titleBar {{ border-bottom: 1px solid {theme.separator}; }} "
+            if theme.name in {"latest", "meadow"}
+            else ""
+        )
         self.setStyleSheet(
             f"#titleBar {{ background: transparent; }} "
             f"#productActions {{ background: {theme.chrome}; border: 1px solid {theme.separator}; "
             f"border-radius: 18px; padding: 1px; }} "
+            f"{title_rule}"
             f"#windowActions {{ border-left: 1px solid {theme.separator}; }}"
         )
         self._style_utility_buttons()

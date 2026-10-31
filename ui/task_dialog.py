@@ -44,7 +44,9 @@ class TaskDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(420)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_TranslucentBackground, False)
+        self.setAutoFillBackground(True)
+        self.setStyleSheet(f"QDialog {{ background: {theme.bg}; }}")
         self._build()
         if task:
             self.title_edit.setText(task.title)
@@ -67,6 +69,7 @@ class TaskDialog(QDialog):
         rect = self.rect().adjusted(8, 8, -8, -8)
         path = QPainterPath()
         path.addRoundedRect(rect, self._theme.radius, self._theme.radius)
+        painter.fillRect(self.rect(), QColor(self._theme.bg))
         painter.fillPath(path, QColor(self._theme.bg))
         painter.setPen(QColor(self._theme.border))
         painter.setBrush(Qt.NoBrush)
